@@ -3,6 +3,7 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 const videoEl = $("#player");
+videoEl.framerate = 25;
 const overlay = $("#overlay");
 const overlayPrompt = $("#overlayPrompt");
 const sessionEnd = $("#sessionEnd");
@@ -10,6 +11,9 @@ const summaryStats = $("#summaryStats");
 const restartSessionBtn = $("#restartSession");
 const closeSummaryBtn = $("#closeSummary");
 const playPauseBtn = $("#playPause");
+const frameBackBtn = $("#frameBack");
+const frameForwardBtn = $("#frameForward");
+const playbackRateSelect = $("#playbackRate");
 const optionsWrap = $("#optionsWrap");
 
 const videoFileInput = $("#videoFile");
@@ -551,6 +555,23 @@ playPauseBtn?.addEventListener("click", () => {
   if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
 });
 
+playbackRateSelect?.addEventListener("change", () => {
+  if (!videoEl.src) return;
+  videoEl.playbackRate = parseFloat(playbackRateSelect.value || "1");
+});
+
+frameBackBtn?.addEventListener("click", () => {
+  if (!videoEl.src) return;
+  const fps = videoEl.framerate || 25;
+  videoEl.currentTime = Math.max(0, videoEl.currentTime - 1 / fps);
+});
+
+frameForwardBtn?.addEventListener("click", () => {
+  if (!videoEl.src) return;
+  const fps = videoEl.framerate || 25;
+  videoEl.currentTime = Math.min(videoEl.duration, videoEl.currentTime + 1 / fps);
+});
+
 // Popup: Rejouer / Fermer
 restartSessionBtn?.addEventListener("click", () => {
   sessionEnd?.classList.add("hidden");
@@ -565,5 +586,30 @@ closeSummaryBtn?.addEventListener("click", () => {
 window.addEventListener("resize", () => { resizeOverlayToVideo(); });
 document.addEventListener("DOMContentLoaded", () => { ensureWrap(); resizeOverlayToVideo(); });
 videoEl?.addEventListener("loadedmetadata", resizeOverlayToVideo);
+videoEl?.addEventListener("loadedmetadata", () => {
+  try {
+    const stream = videoEl.captureStream?.();
+    const track = stream?.getVideoTracks?.()[0];
+    const settings = track?.getSettings?.();
+    if (settings?.frameRate) {
+      videoEl.framerate = settings.frameRate;
+      return;
+    }
+  } catch (e) {}
+  if (typeof videoEl.getVideoPlaybackQuality === "function") {
+    const startFrames = videoEl.getVideoPlaybackQuality().totalVideoFrames;
+    const startTime = videoEl.currentTime;
+    const handler = () => {
+      const q = videoEl.getVideoPlaybackQuality();
+      const dt = videoEl.currentTime - startTime;
+      const df = q.totalVideoFrames - startFrames;
+      if (dt > 0 && df > 0) {
+        videoEl.framerate = df / dt;
+        videoEl.removeEventListener("timeupdate", handler);
+      }
+    };
+    videoEl.addEventListener("timeupdate", handler);
+  }
+});
 videoEl?.addEventListener("play", () => { if (sessionActive && pauseGuard) requestAnimationFrame(tickStopWatcher); });
 setInterval(renderSessionStats, 500);
