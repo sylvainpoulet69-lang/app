@@ -1,0 +1,29 @@
+* { box-sizing: border-box; }
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #0e0f12; color: #e7e9ee; }
+header { padding: 16px 24px; border-bottom: 1px solid #23262d; }
+h1 { margin: 0 0 6px; font-size: 24px; }
+main { padding: 16px 24px; display: grid; gap: 20px; }
+.panel { background: #14171f; border: 1px solid #272b33; border-radius: 12px; padding: 16px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+label { display: flex; gap: 8px; align-items: center; }
+label.inline { gap: 6px; }
+input[type=file], input[type=text] { background: #0e0f12; color: #e7e9ee; border: 1px solid #333844; border-radius: 8px; padding: 8px; }
+button { background: #2a6ef1; color: white; border: none; border-radius: 10px; padding: 10px 14px; cursor: pointer; }
+button:hover { filter: brightness(1.05); }
+button:disabled { background: #3b4150; cursor: not-allowed; }
+#player { display: block; width: 100%; max-height: 60vh; background: black; border-radius: 12px; }
+.video-wrap { position: relative; width: 100%; }
+#overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
+#overlayPrompt { position: absolute; background: rgba(0,0,0,0.8); color: white; padding: 10px 12px; border-radius: 8px; transform: translate(-50%, -100%); pointer-events: none; font-size: 14px; max-width: 70%; text-align: center; }
+.hidden { display: none !important; }
+table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+th, td { border-bottom: 1px solid #272b33; padding: 8px; text-align: left; font-size: 14px; }
+footer { padding: 12px 24px; border-top: 1px solid #23262d; color: #a8adbb; }
+.hint { color: #a8adbb; font-size: 13px; }
+.mt8 { margin-top: 8px; }
+
+/* Session end overlay */
+#sessionEnd { position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; }
+#sessionEnd .summary { background: #11141a; border: 1px solid #2b3240; border-radius: 12px; padding: 16px; width: min(520px, 92%); }
+#sessionEnd h3 { margin-top: 0; }
+.gridHint { position: absolute; pointer-events: none; border: 2px dashed rgba(255,255,255,0.35); border-radius: 8px; }

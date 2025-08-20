@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tennis Vision — MVP hors-ligne</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <header>
+    <h1>Tennis Vision — MVP</h1>
+    <p>Entraînement cognitif & vision du jeu (fonctionne sans internet, en local)</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>1) Charger un <u>fichier vidéo</u> depuis votre ordinateur</h2>
+      <input type="file" id="videoFile" accept="video/*"/>
+      <div class="video-wrap">
+        <video id="player" playsinline></video>
+        <canvas id="overlay"></canvas>
+        <div id="overlayPrompt" class="hidden"></div>
+        <div id="sessionEnd" class="hidden">
+          <div class="summary">
+            <h3>Fin de l'exercice</h3>
+            <div id="summaryStats"></div>
+            <div class="row">
+              <button id="restartSession">Rejouer</button>
+              <button id="closeSummary">Fermer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row mt8">
+        <button id="playPause">Lecture / Pause</button>
+        <span class="hint">Astuce : réglez le timing d'un arrêt en mettant la vidéo en pause exactement au bon moment.</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>2) Mode Éditeur</h2>
+      <div class="row">
+        <button id="addPredict">Ajouter arrêt « Prédire l'atterrissage »</button>
+        <button id="addDecision">Ajouter arrêt « Décision coup suivant »</button>
+        <button id="markAnswer">Définir la réponse (cliquer sur la vidéo)</button>
+        <button id="exportScenario">Exporter le scénario (JSON)</button>
+      </div>
+      <div class="row">
+        <label class="inline">
+          <input type="checkbox" id="zoneMode"/>
+          Mode zones (2×2) pour « Prédire »
+        </label>
+        <label>Options (séparées par des virgules) pour « Décision » :
+          <input type="text" id="decisionOptions" placeholder="ex : CD croisé, Revers long de ligne, Amorti, Lob"/>
+        </label>
+        <label>Réponse correcte :
+          <input type="text" id="decisionCorrect" placeholder="Doit correspondre exactement à une option"/>
+        </label>
+      </div>
+      <div>
+        <h3>Arrêts du scénario</h3>
+        <table id="stopsTable">
+          <thead>
+            <tr><th>#</th><th>Temps (s)</th><th>Type</th><th>Détails</th><th>Actions</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>3) Mode Lecture / Entraînement</h2>
+      <div class="row">
+        <input type="file" id="scenarioFile" accept="application/json"/>
+        <button id="startSession">Démarrer la séance</button>
+        <button id="exportCSV">Exporter résultats (CSV)</button>
+      </div>
+      <div id="sessionStats"></div>
+    </section>
+  </main>
+
+  <footer>
+    <small>MVP local — Aucun envoi de données. Vos scénarios et résultats restent sur votre machine.</small>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
