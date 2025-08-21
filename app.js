@@ -32,7 +32,10 @@ const stopsTableBody = $("#stopsTable tbody");
 
 const startSessionBtn = $("#startSession");
 const exportCSVBtn = $("#exportCSV");
+const exportJSONBtn = $("#exportJSON");
 const sessionStats = $("#sessionStats");
+const rtHistogramCanvas = $("#rtHistogram");
+const perStopListEl = $("#perStopScores");
 
 let currentVideoURL = null;
 let scenario = { version: 2, meta: { title: "Scénario sans titre", createdAt: new Date().toISOString() }, stops: [] };
@@ -337,17 +340,31 @@ function runCountdownThen(callback) {
 
 // Stats/Exports (inchangé)
 function computeStats() {
-  if (!results.length) return { n: 0 };
+  if (!results.length) return { n: 0, rtDistribution: { binSize: 100, bins: [] }, perStop: [] };
   const n = results.length;
-  const meanRT = Math.round(results.reduce((a,r) => a + (r.rtMs||0), 0) / n);
+  const rtMs = results.map(r => r.rtMs).filter(rt => typeof rt === "number");
+  const meanRT = rtMs.length ? Math.round(rtMs.reduce((a,r) => a + r, 0) / rtMs.length) : 0;
   const accuracy = Math.round(100 * results.filter(r => r.correct).length / n);
   const dItems = results.filter(r => typeof r.distancePx === "number");
   const meanDist = dItems.length ? Math.round(dItems.reduce((a,r)=>a+r.distancePx,0)/dItems.length) : null;
-  return { n, meanRT, accuracy, meanDist };
+  const binSize = 100;
+  const maxRT = rtMs.length ? Math.max(...rtMs) : 0;
+  const bins = Array(Math.ceil(maxRT / binSize) || 1).fill(0);
+  rtMs.forEach(rt => { bins[Math.floor(rt / binSize)]++; });
+  const perStop = results.map(r => ({ stopIndex: r.stopIndex, correct: r.correct, rtMs: r.rtMs }));
+  return { n, meanRT, accuracy, meanDist, rtDistribution: { binSize, bins }, perStop };
 }
 function renderSessionStats() {
   const s = computeStats();
-  if (!s.n) { sessionStats.innerHTML = "<p>Aucune donnée pour le moment.</p>"; return; }
+  if (!s.n) {
+    sessionStats.innerHTML = "<p>Aucune donnée pour le moment.</p>";
+    if (rtHistogramCanvas) {
+      const ctx = rtHistogramCanvas.getContext("2d");
+      ctx.clearRect(0,0,rtHistogramCanvas.width,rtHistogramCanvas.height);
+    }
+    if (perStopListEl) perStopListEl.innerHTML = "";
+    return;
+  }
   sessionStats.innerHTML = `
     <h3>Résumé séance</h3>
     <ul>
@@ -357,6 +374,25 @@ function renderSessionStats() {
       ${s.meanDist!=null ? `<li>Erreur moyenne (clic vs réponse): <b>${s.meanDist} px</b></li>` : ""}
     </ul>
   `;
+  if (rtHistogramCanvas && s.rtDistribution.bins.length) {
+    const ctx = rtHistogramCanvas.getContext("2d");
+    const { bins } = s.rtDistribution;
+    const w = rtHistogramCanvas.width;
+    const h = rtHistogramCanvas.height;
+    ctx.clearRect(0,0,w,h);
+    const maxCount = Math.max(...bins);
+    const barWidth = w / bins.length;
+    bins.forEach((c, i) => {
+      const barHeight = maxCount ? (c / maxCount) * h : 0;
+      ctx.fillStyle = "#3498db";
+      ctx.fillRect(i * barWidth, h - barHeight, barWidth - 2, barHeight);
+    });
+  }
+  if (perStopListEl) {
+    perStopListEl.innerHTML = s.perStop.map(ps =>
+      `<li>Arrêt ${ps.stopIndex + 1}: ${ps.correct ? "✅" : "❌"} (${ps.rtMs != null ? ps.rtMs + " ms" : "-"})</li>`
+    ).join("");
+  }
 }
 
 exportCSVBtn?.addEventListener("click", exportCSV);
@@ -375,6 +411,18 @@ function exportCSV() {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "resultats_session.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+exportJSONBtn?.addEventListener("click", exportJSON);
+function exportJSON() {
+  if (!results.length) { alert("Pas de résultats à exporter."); return; }
+  const payload = { results, stats: computeStats() };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "resultats_session.json";
   a.click();
   URL.revokeObjectURL(a.href);
 }
