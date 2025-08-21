@@ -87,8 +87,16 @@
         <input type="file" id="scenarioFile" accept="application/json"/>
         <button id="startSession">Démarrer la séance</button>
         <button id="exportCSV">Exporter résultats (CSV)</button>
+        <button id="exportJSON">Exporter résultats (JSON)</button>
       </div>
       <div id="sessionStats"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Graphiques</h2>
+      <canvas id="rtHistogram" width="400" height="200"></canvas>
+      <h3>Scores par arrêt</h3>
+      <ul id="perStopScores"></ul>
     </section>
   </main>
 
