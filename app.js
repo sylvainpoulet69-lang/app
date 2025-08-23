@@ -27,6 +27,25 @@ const exportScenarioBtn = $("#exportScenario");
 const decisionOptionsInput = $("#decisionOptions");
 const decisionCorrectInput = $("#decisionCorrect");
 const zoneModeCheckbox = $("#zoneMode");
+const gridColsInput = $("#gridCols");
+const gridRowsInput = $("#gridRows");
+
+const editModal = $("#editStopModal");
+const editStopTimeInput = $("#editStopTime");
+const editStopTypeSelect = $("#editStopType");
+const editZoneModeCheckbox = $("#editZoneMode");
+const editGridColsInput = $("#editGridCols");
+const editGridRowsInput = $("#editGridRows");
+const editGridXInput = $("#editGridX");
+const editGridYInput = $("#editGridY");
+const editAnswerXInput = $("#editAnswerX");
+const editAnswerYInput = $("#editAnswerY");
+const editOptionsInput = $("#editOptions");
+const editCorrectInput = $("#editCorrect");
+const saveEditStopBtn = $("#saveEditStop");
+const cancelEditStopBtn = $("#cancelEditStop");
+const editPredictFields = $("#editPredictFields");
+const editDecisionFields = $("#editDecisionFields");
 
 const stopsTableBody = $("#stopsTable tbody");
 
@@ -115,12 +134,19 @@ function renderOptions(options, onPick) {
 
 // Zones
 function getZoneFromSplit(relX, relY, gs) {
-  const splitX = gs?.x ?? 0.5;
-  const splitY = gs?.y ?? 0.5;
-  if (relX < splitX && relY < splitY) return { col:0,row:0, id:1 };
-  if (relX >= splitX && relY < splitY) return { col:1,row:0, id:2 };
-  if (relX < splitX && relY >= splitY) return { col:0,row:1, id:3 };
-  return { col:1,row:1, id:4 };
+  const cols = gs?.cols || 2;
+  const rows = gs?.rows || 2;
+  const xSplits = (Array.isArray(gs?.x) ? gs.x : [gs?.x ?? 0.5]).slice().sort((a,b)=>a-b);
+  const ySplits = (Array.isArray(gs?.y) ? gs.y : [gs?.y ?? 0.5]).slice().sort((a,b)=>a-b);
+  let col = cols - 1;
+  for (let i = 0; i < xSplits.length; i++) {
+    if (relX < xSplits[i]) { col = i; break; }
+  }
+  let row = rows - 1;
+  for (let j = 0; j < ySplits.length; j++) {
+    if (relY < ySplits[j]) { row = j; break; }
+  }
+  return { col, row, id: row * cols + col + 1 };
 }
 function getRelFromEvent(evt) {
   const rect = overlay.getBoundingClientRect();
@@ -145,10 +171,10 @@ function redrawOverlay() {
       ctx.save();
       ctx.strokeStyle = "rgba(255,0,0,0.95)";
       ctx.lineWidth = 2;
-      const x = gs.x * overlay.width;
-      const y = gs.y * overlay.height;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, overlay.height); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(overlay.width, y); ctx.stroke();
+      const xs = (Array.isArray(gs.x) ? gs.x : [gs.x ?? 0.5]).slice().sort((a,b)=>a-b);
+      const ys = (Array.isArray(gs.y) ? gs.y : [gs.y ?? 0.5]).slice().sort((a,b)=>a-b);
+      xs.forEach(x => { const px = x * overlay.width; ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,overlay.height); ctx.stroke(); });
+      ys.forEach(y => { const py = y * overlay.height; ctx.beginPath(); ctx.moveTo(0,py); ctx.lineTo(overlay.width,py); ctx.stroke(); });
       ctx.restore();
     }
   }
@@ -161,14 +187,25 @@ function redrawOverlay() {
   }
 }
 function zoneBoxes(gs) {
-  const xSplit = (gs?.x ?? 0.5) * overlay.width;
-  const ySplit = (gs?.y ?? 0.5) * overlay.height;
-  return {
-    1: {x:0, y:0, w:xSplit, h:ySplit},
-    2: {x:xSplit, y:0, w:overlay.width - xSplit, h:ySplit},
-    3: {x:0, y:ySplit, w:xSplit, h:overlay.height - ySplit},
-    4: {x:xSplit, y:ySplit, w:overlay.width - xSplit, h:overlay.height - ySplit},
-  };
+  const cols = gs?.cols || 2;
+  const rows = gs?.rows || 2;
+  const xSplits = (Array.isArray(gs?.x) ? gs.x : [gs?.x ?? 0.5]).slice().sort((a,b)=>a-b);
+  const ySplits = (Array.isArray(gs?.y) ? gs.y : [gs?.y ?? 0.5]).slice().sort((a,b)=>a-b);
+  const xCoords = [0, ...xSplits.map(v => v * overlay.width), overlay.width];
+  const yCoords = [0, ...ySplits.map(v => v * overlay.height), overlay.height];
+  const boxes = {};
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const id = r * cols + c + 1;
+      boxes[id] = {
+        x: xCoords[c],
+        y: yCoords[r],
+        w: xCoords[c+1] - xCoords[c],
+        h: yCoords[r+1] - yCoords[r]
+      };
+    }
+  }
+  return boxes;
 }
 function drawZoneStroke(ctx, box, color, lw=4) {
   ctx.save();
@@ -450,6 +487,11 @@ function addStop(type) {
     stop.correct = (decisionCorrectInput.value || "").trim();
   } else if (type === "predict-landing") {
     stop.zoneMode = !!zoneModeCheckbox.checked;
+    if (stop.zoneMode) {
+      const cols = parseInt(gridColsInput.value, 10) || 2;
+      const rows = parseInt(gridRowsInput.value, 10) || 2;
+      stop.gridSplit = { cols, rows, x: [], y: [] };
+    }
   }
   scenario.stops.push(stop);
   refreshStopsTable();
@@ -458,12 +500,13 @@ function addStop(type) {
 function refreshStopsTable() {
   stopsTableBody.innerHTML = "";
   scenario.stops
-    .sort((a,b)=>a.t-b.t)
     .forEach((s, i) => {
       let details = "";
       if (s.type === "predict-landing") {
         if (s.zoneMode) {
-          details = s.answerZone ? `Réponse (zone 2×2): col=${s.answerZone.col+1}, ligne=${s.answerZone.row+1}` : "Réponse zone non définie";
+          const c = s.gridSplit?.cols || 2;
+          const r = s.gridSplit?.rows || 2;
+          details = s.answerZone ? `Réponse (zone ${c}×${r}): col=${s.answerZone.col+1}, ligne=${s.answerZone.row+1}` : "Réponse zone non définie";
         } else {
           details = s.answerPoint ? `Réponse: x=${s.answerPoint.x.toFixed(2)}, y=${s.answerPoint.y.toFixed(2)}` : "Réponse non définie";
         }
@@ -478,6 +521,9 @@ function refreshStopsTable() {
         <td>${details}</td>
         <td>
           <button data-act="seek" data-i="${i}">Aller</button>
+          <button data-act="edit" data-i="${i}">Éditer</button>
+          <button data-act="up" data-i="${i}">↑</button>
+          <button data-act="down" data-i="${i}">↓</button>
           <button data-act="del" data-i="${i}">Supprimer</button>
         </td>
       `;
@@ -485,11 +531,86 @@ function refreshStopsTable() {
     });
 }
 
+let editingIndex = null;
+function editStop(i) {
+  const stop = scenario.stops[i]; if (!stop) return;
+  editingIndex = i;
+  editStopTimeInput.value = stop.t.toFixed(2);
+  editStopTypeSelect.value = stop.type;
+  if (stop.type === "predict-landing") {
+    editPredictFields.classList.remove("hidden");
+    editDecisionFields.classList.add("hidden");
+    editZoneModeCheckbox.checked = !!stop.zoneMode;
+    editGridColsInput.value = stop.gridSplit?.cols || 2;
+    editGridRowsInput.value = stop.gridSplit?.rows || 2;
+    editGridXInput.value = (stop.gridSplit?.x || []).join(",");
+    editGridYInput.value = (stop.gridSplit?.y || []).join(",");
+    editAnswerXInput.value = stop.answerPoint?.x ?? "";
+    editAnswerYInput.value = stop.answerPoint?.y ?? "";
+    editOptionsInput.value = "";
+    editCorrectInput.value = "";
+  } else {
+    editPredictFields.classList.add("hidden");
+    editDecisionFields.classList.remove("hidden");
+    editOptionsInput.value = (stop.options || []).join(",");
+    editCorrectInput.value = stop.correct || "";
+    editZoneModeCheckbox.checked = false;
+  }
+  editModal.classList.remove("hidden");
+}
+
+editStopTypeSelect?.addEventListener("change", () => {
+  if (editStopTypeSelect.value === "predict-landing") {
+    editPredictFields.classList.remove("hidden");
+    editDecisionFields.classList.add("hidden");
+  } else {
+    editPredictFields.classList.add("hidden");
+    editDecisionFields.classList.remove("hidden");
+  }
+});
+
+saveEditStopBtn?.addEventListener("click", () => {
+  if (editingIndex == null) return;
+  const stop = scenario.stops[editingIndex];
+  stop.t = parseFloat(editStopTimeInput.value) || 0;
+  stop.type = editStopTypeSelect.value;
+  if (stop.type === "predict-landing") {
+    stop.zoneMode = !!editZoneModeCheckbox.checked;
+    if (stop.zoneMode) {
+      const cols = parseInt(editGridColsInput.value,10) || 2;
+      const rows = parseInt(editGridRowsInput.value,10) || 2;
+      const x = (editGridXInput.value || "").split(",").map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v));
+      const y = (editGridYInput.value || "").split(",").map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v));
+      stop.gridSplit = { cols, rows, x, y };
+    } else {
+      delete stop.gridSplit;
+    }
+    const ax = parseFloat(editAnswerXInput.value);
+    const ay = parseFloat(editAnswerYInput.value);
+    if (!isNaN(ax) && !isNaN(ay)) stop.answerPoint = {x:ax,y:ay}; else delete stop.answerPoint;
+    delete stop.options; delete stop.correct;
+  } else {
+    stop.options = (editOptionsInput.value || "").split(",").map(s=>s.trim()).filter(Boolean);
+    stop.correct = (editCorrectInput.value || "").trim();
+    stop.zoneMode = false;
+    delete stop.gridSplit; delete stop.answerPoint; delete stop.answerZone;
+  }
+  editModal.classList.add("hidden");
+  editingIndex = null;
+  refreshStopsTable();
+});
+
+cancelEditStopBtn?.addEventListener("click", () => { editModal.classList.add("hidden"); editingIndex = null; });
+
 stopsTableBody?.addEventListener("click", (e) => {
   const btn = e.target.closest("button"); if (!btn) return;
   const i = parseInt(btn.dataset.i, 10);
-  if (btn.dataset.act === "del") { scenario.stops.splice(i,1); refreshStopsTable(); }
-  else if (btn.dataset.act === "seek") { videoEl.currentTime = scenario.stops[i].t; videoEl.pause(); }
+  const act = btn.dataset.act;
+  if (act === "del") { scenario.stops.splice(i,1); refreshStopsTable(); }
+  else if (act === "seek") { videoEl.currentTime = scenario.stops[i].t; videoEl.pause(); }
+  else if (act === "up" && i > 0) { [scenario.stops[i-1], scenario.stops[i]] = [scenario.stops[i], scenario.stops[i-1]]; refreshStopsTable(); }
+  else if (act === "down" && i < scenario.stops.length-1) { [scenario.stops[i+1], scenario.stops[i]] = [scenario.stops[i], scenario.stops[i+1]]; refreshStopsTable(); }
+  else if (act === "edit") { editStop(i); }
 });
 
 markAnswerBtn?.addEventListener("click", () => {
@@ -504,7 +625,8 @@ markAnswerBtn?.addEventListener("click", () => {
   } else { setAnswerForStop(idx); }
 });
 
-let definingGridStep = 0; // 0 rien, 1 verticale, 2 horizontale
+let definingGridAxis = null; // 'x' ou 'y' pendant définition
+let linesLeft = 0;
 let tempGrid = null;
 
 function setAnswerForStop(index) {
@@ -528,31 +650,68 @@ function setAnswerForStop(index) {
   }
 
   // ZoneMode: grille par arrêt
-  definingGridStep = 1; tempGrid = { x: 0.5, y: 0.5 };
-  showPrompt("Définis la grille : clique la <b>ligne VERTICALE</b> (1er clic).");
-  overlay.style.pointerEvents = "auto";
-
-  const gridHandler = (evt) => {
-    const rel = getRelFromEvent(evt);
-    if (definingGridStep === 1) {
-      tempGrid.x = rel.x; definingGridStep = 2;
-      activeGridForEditor = {...tempGrid};
-      showPrompt("Clique la <b>ligne HORIZONTALE</b> (2e clic).");
-    } else if (definingGridStep === 2) {
-      tempGrid.y = rel.y; definingGridStep = 0;
-      stop.gridSplit = {...tempGrid};
-      activeGridForEditor = {...tempGrid};
-      overlay.removeEventListener("click", gridHandler);
-      chooseZoneForStop(index);
-    }
-    redrawOverlay();
-  };
-  overlay.addEventListener("click", gridHandler);
+  if (stop.gridSplit && !Array.isArray(stop.gridSplit.x)) {
+    stop.gridSplit = { cols:2, rows:2, x:[stop.gridSplit.x], y:[stop.gridSplit.y] };
+  }
+  stop.gridSplit = stop.gridSplit || { cols:2, rows:2, x:[], y:[] };
+  const gs = stop.gridSplit;
+  if (gs.x.length < gs.cols-1 || gs.y.length < gs.rows-1) {
+    tempGrid = { cols: gs.cols, rows: gs.rows, x:[...gs.x], y:[...gs.y] };
+    definingGridAxis = tempGrid.x.length < gs.cols-1 ? 'x' : 'y';
+    linesLeft = (definingGridAxis === 'x' ? gs.cols-1 - tempGrid.x.length : gs.rows-1 - tempGrid.y.length);
+    overlay.style.pointerEvents = "auto";
+    showPrompt(definingGridAxis === 'x'
+      ? `Définis la grille : clique la <b>ligne VERTICALE ${tempGrid.x.length+1}/${gs.cols-1}</b>.`
+      : `Définis la grille : clique la <b>ligne HORIZONTALE ${tempGrid.y.length+1}/${gs.rows-1}</b>.`);
+    const gridHandler = (evt) => {
+      const rel = getRelFromEvent(evt);
+      if (definingGridAxis === 'x') {
+        tempGrid.x.push(rel.x);
+        tempGrid.x.sort((a,b)=>a-b);
+        linesLeft--;
+        activeGridForEditor = {...tempGrid};
+        if (linesLeft === 0) {
+          definingGridAxis = 'y';
+          linesLeft = gs.rows-1 - tempGrid.y.length;
+          if (linesLeft === 0) {
+            overlay.removeEventListener("click", gridHandler);
+            gs.x = tempGrid.x; gs.y = tempGrid.y;
+            activeGridForEditor = {...gs};
+            chooseZoneForStop(index);
+            redrawOverlay();
+            return;
+          } else {
+            showPrompt(`Clique la <b>ligne HORIZONTALE ${tempGrid.y.length+1}/${gs.rows-1}</b>.`);
+          }
+        } else {
+          showPrompt(`Clique la <b>ligne VERTICALE ${tempGrid.x.length+1}/${gs.cols-1}</b>.`);
+        }
+      } else {
+        tempGrid.y.push(rel.y);
+        tempGrid.y.sort((a,b)=>a-b);
+        linesLeft--;
+        activeGridForEditor = {...tempGrid};
+        if (linesLeft === 0) {
+          overlay.removeEventListener("click", gridHandler);
+          gs.x = tempGrid.x; gs.y = tempGrid.y;
+          activeGridForEditor = {...gs};
+          chooseZoneForStop(index);
+        } else {
+          showPrompt(`Clique la <b>ligne HORIZONTALE ${tempGrid.y.length+1}/${gs.rows-1}</b>.`);
+        }
+      }
+      redrawOverlay();
+    };
+    overlay.addEventListener("click", gridHandler);
+  } else {
+    activeGridForEditor = {...gs};
+    chooseZoneForStop(index);
+  }
 }
 
 function chooseZoneForStop(index) {
   const stop = scenario.stops[index];
-  showPrompt("Clique maintenant dans la <b>zone correcte</b> (1/2/3/4).");
+  showPrompt("Clique maintenant dans la <b>zone correcte</b>.");
   const clickHandler = (evt) => {
     const rel = getRelFromEvent(evt);
     const z = getZoneFromSplit(rel.x, rel.y, stop.gridSplit);
