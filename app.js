@@ -790,7 +790,7 @@ closeSummaryBtn?.addEventListener("click", () => {
 
 // Événements globaux
 window.addEventListener("resize", () => { resizeOverlayToVideo(); });
-document.addEventListener("DOMContentLoaded", () => { ensureWrap(); resizeOverlayToVideo(); });
+document.addEventListener("DOMContentLoaded", () => { ensureWrap(); resizeOverlayToVideo(); renderSessionStats(); });
 videoEl?.addEventListener("loadedmetadata", resizeOverlayToVideo);
 videoEl?.addEventListener("loadedmetadata", () => {
   try {
@@ -818,4 +818,3 @@ videoEl?.addEventListener("loadedmetadata", () => {
   }
 });
 videoEl?.addEventListener("play", () => { if (sessionActive && pauseGuard) requestAnimationFrame(tickStopWatcher); });
-setInterval(renderSessionStats, 500);
