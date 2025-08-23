@@ -36,6 +36,19 @@ const exportJSONBtn = $("#exportJSON");
 const sessionStats = $("#sessionStats");
 const rtHistogramCanvas = $("#rtHistogram");
 const perStopListEl = $("#perStopScores");
+const progressChartCanvas = $("#progressChart");
+const sessionComparisonCanvas = $("#sessionComparisonChart");
+
+let progressChart = null;
+let sessionComparisonChart = null;
+
+// Register zoom plugin if available
+try {
+  const zp = window.ChartZoom || window.chartjsPluginZoom;
+  if (zp && typeof Chart !== "undefined" && Chart.register) {
+    Chart.register(zp);
+  }
+} catch (e) {}
 
 let currentVideoURL = null;
 let scenario = { version: 2, meta: { title: "Scénario sans titre", createdAt: new Date().toISOString() }, stops: [] };
@@ -196,12 +209,17 @@ function startSession() {
 }
 
 function finishSession() {
-  sessionActive = false; videoEl.pause(); renderSessionStats();
+  sessionActive = false;
+  videoEl.pause();
+  const s = computeStats();
+  addSessionToHistory(s);
+  renderSessionStats();
   if (summaryStats && sessionEnd) {
-    const s = computeStats();
     summaryStats.innerHTML = `
       <p>Nombre d'arrêts traités: <b>${s.n || 0}</b></p>
       <p>Temps de réaction moyen: <b>${s.meanRT || 0} ms</b></p>
+      <p>Médiane des temps de réaction: <b>${s.medianRT || 0} ms</b></p>
+      <p>Écart-type des temps de réaction: <b>${s.stdDevRT || 0} ms</b></p>
       <p>Taux de bonnes réponses: <b>${s.accuracy || 0}%</b></p>
       ${s.meanDist!=null ? `<p>Erreur moyenne (clic vs réponse): <b>${s.meanDist} px</b></p>` : ""}
     `;
@@ -340,10 +358,24 @@ function runCountdownThen(callback) {
 
 // Stats/Exports (inchangé)
 function computeStats() {
-  if (!results.length) return { n: 0, rtDistribution: { binSize: 100, bins: [] }, perStop: [] };
+  if (!results.length) {
+    return {
+      n: 0,
+      rtDistribution: { binSize: 100, bins: [] },
+      perStop: [],
+      rtSeries: [],
+      rtTrend: [],
+      accTrend: [],
+    };
+  }
   const n = results.length;
   const rtMs = results.map(r => r.rtMs).filter(rt => typeof rt === "number");
   const meanRT = rtMs.length ? Math.round(rtMs.reduce((a,r) => a + r, 0) / rtMs.length) : 0;
+  const sorted = [...rtMs].sort((a,b)=>a-b);
+  const mid = Math.floor(sorted.length/2);
+  const medianRT = sorted.length ? (sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid-1]+sorted[mid])/2)) : 0;
+  const variance = rtMs.length ? rtMs.reduce((a,r)=>a+Math.pow(r-meanRT,2),0)/rtMs.length : 0;
+  const stdDevRT = Math.round(Math.sqrt(variance));
   const accuracy = Math.round(100 * results.filter(r => r.correct).length / n);
   const dItems = results.filter(r => typeof r.distancePx === "number");
   const meanDist = dItems.length ? Math.round(dItems.reduce((a,r)=>a+r.distancePx,0)/dItems.length) : null;
@@ -352,7 +384,48 @@ function computeStats() {
   const bins = Array(Math.ceil(maxRT / binSize) || 1).fill(0);
   rtMs.forEach(rt => { bins[Math.floor(rt / binSize)]++; });
   const perStop = results.map(r => ({ stopIndex: r.stopIndex, correct: r.correct, rtMs: r.rtMs }));
-  return { n, meanRT, accuracy, meanDist, rtDistribution: { binSize, bins }, perStop };
+  const rtSeries = perStop.map(ps => ps.rtMs);
+  const rtTrend = [];
+  const accTrend = [];
+  let cumRT = 0;
+  let cumCorrect = 0;
+  perStop.forEach((ps, idx) => {
+    if (typeof ps.rtMs === "number") cumRT += ps.rtMs;
+    if (ps.correct) cumCorrect++;
+    rtTrend.push(Math.round(cumRT / (idx + 1)));
+    accTrend.push(Math.round((100 * cumCorrect) / (idx + 1)));
+  });
+  return {
+    n,
+    meanRT,
+    medianRT,
+    stdDevRT,
+    accuracy,
+    meanDist,
+    rtDistribution: { binSize, bins },
+    perStop,
+    rtSeries,
+    rtTrend,
+    accTrend,
+  };
+}
+
+function addSessionToHistory(stats) {
+  try {
+    const history = JSON.parse(localStorage.getItem("sessionHistory") || "[]");
+    history.push({ meanRT: stats.meanRT, accuracy: stats.accuracy });
+    localStorage.setItem("sessionHistory", JSON.stringify(history));
+  } catch (e) {
+    console.warn("Cannot save session history", e);
+  }
+}
+
+function getSessionHistory() {
+  try {
+    return JSON.parse(localStorage.getItem("sessionHistory") || "[]");
+  } catch (e) {
+    return [];
+  }
 }
 function renderSessionStats() {
   const s = computeStats();
@@ -370,6 +443,8 @@ function renderSessionStats() {
     <ul>
       <li>Nombre d'arrêts traités: <b>${s.n}</b></li>
       <li>Temps de réaction moyen: <b>${s.meanRT} ms</b></li>
+      <li>Médiane des temps de réaction: <b>${s.medianRT} ms</b></li>
+      <li>Écart-type des temps de réaction: <b>${s.stdDevRT} ms</b></li>
       <li>Taux de réponses « correctes »: <b>${s.accuracy}%</b></li>
       ${s.meanDist!=null ? `<li>Erreur moyenne (clic vs réponse): <b>${s.meanDist} px</b></li>` : ""}
     </ul>
@@ -392,6 +467,89 @@ function renderSessionStats() {
     perStopListEl.innerHTML = s.perStop.map(ps =>
       `<li>Arrêt ${ps.stopIndex + 1}: ${ps.correct ? "✅" : "❌"} (${ps.rtMs != null ? ps.rtMs + " ms" : "-"})</li>`
     ).join("");
+  }
+
+  if (progressChartCanvas && s.rtSeries.length) {
+    const labels = s.perStop.map((_, i) => i + 1);
+    const data = {
+      labels,
+      datasets: [
+        {
+          label: "RT (ms)",
+          data: s.rtSeries,
+          borderColor: "rgba(52,152,219,0.8)",
+          fill: false,
+        },
+        {
+          label: "Moyenne cumulée (ms)",
+          data: s.rtTrend,
+          borderColor: "rgba(231,76,60,0.8)",
+          fill: false,
+        }
+      ]
+    };
+    const options = {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        zoom: {
+          zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "x" },
+          pan: { enabled: true, mode: "x" }
+        }
+      }
+    };
+    if (!progressChart) {
+      progressChart = new Chart(progressChartCanvas.getContext("2d"), { type: "line", data, options });
+    } else {
+      progressChart.data = data;
+      progressChart.update();
+    }
+  }
+
+  const history = getSessionHistory();
+  if (sessionComparisonCanvas && history.length) {
+    const labels = history.map((_, i) => `Session ${i + 1}`);
+    const meanRTs = history.map(h => h.meanRT);
+    const accuracies = history.map(h => h.accuracy);
+    const data = {
+      labels,
+      datasets: [
+        {
+          label: "RT moyen (ms)",
+          data: meanRTs,
+          borderColor: "rgba(54, 162, 235, 0.8)",
+          fill: false,
+          yAxisID: "y",
+        },
+        {
+          label: "Précision (%)",
+          data: accuracies,
+          borderColor: "rgba(75, 192, 192, 0.8)",
+          fill: false,
+          yAxisID: "y1",
+        }
+      ]
+    };
+    const options = {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        y: { type: "linear", position: "left", beginAtZero: true },
+        y1: { type: "linear", position: "right", beginAtZero: true, grid: { drawOnChartArea: false } },
+      },
+      plugins: {
+        zoom: {
+          zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "x" },
+          pan: { enabled: true, mode: "x" }
+        }
+      }
+    };
+    if (!sessionComparisonChart) {
+      sessionComparisonChart = new Chart(sessionComparisonCanvas.getContext("2d"), { type: "line", data, options });
+    } else {
+      sessionComparisonChart.data = data;
+      sessionComparisonChart.update();
+    }
   }
 }
 

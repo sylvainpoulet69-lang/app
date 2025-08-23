@@ -95,6 +95,10 @@
     <section class="panel">
       <h2>Graphiques</h2>
       <canvas id="rtHistogram" width="400" height="200"></canvas>
+      <h3>Progression des temps de réaction</h3>
+      <canvas id="progressChart"></canvas>
+      <h3>Comparaison multi-séances</h3>
+      <canvas id="sessionComparisonChart"></canvas>
       <h3>Scores par arrêt</h3>
       <ul id="perStopScores"></ul>
     </section>
@@ -104,6 +108,8 @@
     <small>MVP local — Aucun envoi de données. Vos scénarios et résultats restent sur votre machine.</small>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.3.0/dist/chartjs-plugin-zoom.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
