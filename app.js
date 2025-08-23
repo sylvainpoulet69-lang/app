@@ -36,6 +36,10 @@ const exportJSONBtn = $("#exportJSON");
 const sessionStats = $("#sessionStats");
 const rtHistogramCanvas = $("#rtHistogram");
 const perStopListEl = $("#perStopScores");
+const historyList = $("#historyList");
+const historyStats = $("#historyStats");
+const exportHistoryBtn = $("#exportHistory");
+const importHistoryInput = $("#importHistory");
 
 let currentVideoURL = null;
 let scenario = { version: 2, meta: { title: "Scénario sans titre", createdAt: new Date().toISOString() }, stops: [] };
@@ -49,6 +53,21 @@ let playQueue = [];
 let nextStopIdx = 0;
 let sessionActive = false;
 let pauseGuard = false;
+
+// Historique des séances
+const sessionHistory = {
+  key: "sessionHistory",
+  list: [],
+  load() {
+    try { this.list = JSON.parse(localStorage.getItem(this.key)) || []; }
+    catch (e) { this.list = []; }
+  },
+  save() { localStorage.setItem(this.key, JSON.stringify(this.list)); },
+  add(entry) { this.list.push(entry); this.save(); },
+  export() { return JSON.stringify(this.list, null, 2); },
+  import(json) { this.list = JSON.parse(json); this.save(); }
+};
+sessionHistory.load();
 
 // wrap overlay au-dessus de la vidéo
 let wrap = null;
@@ -196,14 +215,21 @@ function startSession() {
 }
 
 function finishSession() {
-  sessionActive = false; videoEl.pause(); renderSessionStats();
+  sessionActive = false; videoEl.pause();
+  const stats = renderSessionStats();
+  sessionHistory.add({
+    date: new Date().toISOString(),
+    scenarioTitle: scenario.meta?.title || "Scénario sans titre",
+    stats,
+    results: [...results]
+  });
+  renderHistory();
   if (summaryStats && sessionEnd) {
-    const s = computeStats();
     summaryStats.innerHTML = `
-      <p>Nombre d'arrêts traités: <b>${s.n || 0}</b></p>
-      <p>Temps de réaction moyen: <b>${s.meanRT || 0} ms</b></p>
-      <p>Taux de bonnes réponses: <b>${s.accuracy || 0}%</b></p>
-      ${s.meanDist!=null ? `<p>Erreur moyenne (clic vs réponse): <b>${s.meanDist} px</b></p>` : ""}
+      <p>Nombre d'arrêts traités: <b>${stats.n || 0}</b></p>
+      <p>Temps de réaction moyen: <b>${stats.meanRT || 0} ms</b></p>
+      <p>Taux de bonnes réponses: <b>${stats.accuracy || 0}%</b></p>
+      ${stats.meanDist!=null ? `<p>Erreur moyenne (clic vs réponse): <b>${stats.meanDist} px</b></p>` : ""}
     `;
     sessionEnd.classList.remove("hidden");
   }
@@ -363,7 +389,7 @@ function renderSessionStats() {
       ctx.clearRect(0,0,rtHistogramCanvas.width,rtHistogramCanvas.height);
     }
     if (perStopListEl) perStopListEl.innerHTML = "";
-    return;
+    return s;
   }
   sessionStats.innerHTML = `
     <h3>Résumé séance</h3>
@@ -393,6 +419,7 @@ function renderSessionStats() {
       `<li>Arrêt ${ps.stopIndex + 1}: ${ps.correct ? "✅" : "❌"} (${ps.rtMs != null ? ps.rtMs + " ms" : "-"})</li>`
     ).join("");
   }
+  return s;
 }
 
 exportCSVBtn?.addEventListener("click", exportCSV);
@@ -426,6 +453,64 @@ function exportJSON() {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+// Historique
+function renderHistory() {
+  if (!historyList) return;
+  if (!sessionHistory.list.length) {
+    historyList.innerHTML = "<li>Aucune séance enregistrée.</li>";
+    return;
+  }
+  historyList.innerHTML = sessionHistory.list.map((h,i) =>
+    `<li><button data-i="${i}">${new Date(h.date).toLocaleString()} — ${h.scenarioTitle}</button></li>`
+  ).join("");
+}
+
+function showHistoryStats(i) {
+  const entry = sessionHistory.list[i];
+  if (!entry || !historyStats) return;
+  const s = entry.stats || {};
+  historyStats.innerHTML = `
+    <h3>${entry.scenarioTitle} — ${new Date(entry.date).toLocaleString()}</h3>
+    <ul>
+      <li>Nombre d'arrêts traités: <b>${s.n || 0}</b></li>
+      <li>Temps de réaction moyen: <b>${s.meanRT || 0} ms</b></li>
+      <li>Taux de bonnes réponses: <b>${s.accuracy || 0}%</b></li>
+      ${s.meanDist!=null ? `<li>Erreur moyenne (clic vs réponse): <b>${s.meanDist} px</b></li>` : ""}
+    </ul>
+  `;
+}
+
+historyList?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-i]");
+  if (!btn) return;
+  const i = parseInt(btn.dataset.i, 10);
+  showHistoryStats(i);
+});
+
+exportHistoryBtn?.addEventListener("click", () => {
+  const blob = new Blob([sessionHistory.export()], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "historique_sessions.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+importHistoryInput?.addEventListener("change", (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    try {
+      sessionHistory.import(fr.result);
+      renderHistory();
+      alert("Historique importé.");
+    } catch (err) {
+      alert("Erreur: " + err.message);
+    }
+  };
+  fr.readAsText(f);
+});
 
 // Editeur
 videoFileInput?.addEventListener("change", (e) => {
@@ -661,3 +746,4 @@ videoEl?.addEventListener("loadedmetadata", () => {
 });
 videoEl?.addEventListener("play", () => { if (sessionActive && pauseGuard) requestAnimationFrame(tickStopWatcher); });
 setInterval(renderSessionStats, 500);
+renderHistory();
