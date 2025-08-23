@@ -36,9 +36,57 @@ const exportJSONBtn = $("#exportJSON");
 const sessionStats = $("#sessionStats");
 const rtHistogramCanvas = $("#rtHistogram");
 const perStopListEl = $("#perStopScores");
+const scenarioTitleInput = $("#scenarioTitle");
+const saveScenarioBtn = $("#saveScenarioBtn");
+const loadScenarioBtn = $("#loadScenarioBtn");
+const deleteScenarioBtn = $("#deleteScenarioBtn");
+const scenarioListSelect = $("#scenarioList");
 
 let currentVideoURL = null;
 let scenario = { version: 2, meta: { title: "Scénario sans titre", createdAt: new Date().toISOString() }, stops: [] };
+
+// Persistance de scénarios dans localStorage
+const scenarioStore = (() => {
+  const KEY = "tv_scenarios";
+  function readAll() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } }
+  function writeAll(data) { localStorage.setItem(KEY, JSON.stringify(data)); }
+  return {
+    save(name, data) { const all = readAll(); all[name] = data; writeAll(all); },
+    load(name) { return readAll()[name] || null; },
+    remove(name) { const all = readAll(); delete all[name]; writeAll(all); },
+    list() { return Object.keys(readAll()); }
+  };
+})();
+
+function refreshScenarioList() {
+  if (!scenarioListSelect) return;
+  scenarioListSelect.innerHTML = "";
+  scenarioStore.list().forEach(n => {
+    const opt = document.createElement("option");
+    opt.value = n; opt.textContent = n;
+    scenarioListSelect.appendChild(opt);
+  });
+}
+
+function saveScenario(name) {
+  scenario.meta.title = name;
+  scenarioStore.save(name, scenario);
+  refreshScenarioList();
+}
+
+function loadScenario(name) {
+  const data = scenarioStore.load(name);
+  if (data) {
+    scenario = data;
+    scenarioTitleInput.value = scenario.meta?.title || name;
+    refreshStopsTable(); redrawOverlay();
+  }
+}
+
+function deleteScenario(name) {
+  scenarioStore.remove(name);
+  refreshScenarioList();
+}
 
 let editorMode = true;
 let pendingSetAnswerForIndex = null;
@@ -585,11 +633,34 @@ scenarioFileInput?.addEventListener("change", (e) => {
       const obj = JSON.parse(fr.result);
       if (!obj.stops || !Array.isArray(obj.stops)) throw new Error("JSON invalide (stops manquant).");
       scenario = obj;
+      scenarioTitleInput.value = scenario.meta?.title || "";
       refreshStopsTable(); redrawOverlay();
       alert("Scénario chargé.");
     } catch (e) { alert("Erreur: " + e.message); }
   };
   fr.readAsText(f);
+});
+
+scenarioTitleInput?.addEventListener("input", () => {
+  scenario.meta.title = scenarioTitleInput.value;
+});
+
+saveScenarioBtn?.addEventListener("click", () => {
+  const name = (scenarioTitleInput.value || "").trim();
+  if (!name) { alert("Nom de scénario requis."); return; }
+  saveScenario(name);
+});
+
+loadScenarioBtn?.addEventListener("click", () => {
+  const name = scenarioListSelect?.value;
+  if (name) loadScenario(name);
+});
+
+deleteScenarioBtn?.addEventListener("click", () => {
+  const name = scenarioListSelect?.value;
+  if (name && confirm(`Supprimer le scénario "${name}" ?`)) {
+    deleteScenario(name);
+  }
 });
 
 startSessionBtn?.addEventListener("click", () => {
@@ -632,7 +703,12 @@ closeSummaryBtn?.addEventListener("click", () => {
 
 // Événements globaux
 window.addEventListener("resize", () => { resizeOverlayToVideo(); });
-document.addEventListener("DOMContentLoaded", () => { ensureWrap(); resizeOverlayToVideo(); });
+document.addEventListener("DOMContentLoaded", () => {
+  ensureWrap();
+  resizeOverlayToVideo();
+  if (scenarioTitleInput) scenarioTitleInput.value = scenario.meta.title;
+  refreshScenarioList();
+});
 videoEl?.addEventListener("loadedmetadata", resizeOverlayToVideo);
 videoEl?.addEventListener("loadedmetadata", () => {
   try {

@@ -82,6 +82,21 @@
     </section>
 
     <section class="panel">
+      <h2>Mes scénarios</h2>
+      <div class="row">
+        <label>Titre :
+          <input type="text" id="scenarioTitle" placeholder="Nom du scénario"/>
+        </label>
+      </div>
+      <div class="row mt8">
+        <button id="saveScenarioBtn">Enregistrer</button>
+        <select id="scenarioList"></select>
+        <button id="loadScenarioBtn">Charger</button>
+        <button id="deleteScenarioBtn">Supprimer</button>
+      </div>
+    </section>
+
+    <section class="panel">
       <h2>3) Mode Lecture / Entraînement</h2>
       <div class="row">
         <input type="file" id="scenarioFile" accept="application/json"/>
