@@ -138,7 +138,7 @@ try {
 } catch (e) {}
 
 let currentVideoURL = null;
-let scenario = { version: 2, meta: { title: "Scénario sans titre", createdAt: new Date().toISOString() }, stops: [] };
+let scenario = { version: 3, meta: { title: "Scénario sans titre", createdAt: new Date().toISOString() }, stops: [] };
 
 let editorMode = true;
 let pendingSetAnswerForIndex = null;
@@ -1027,15 +1027,43 @@ function chooseZoneForStop(index) {
   clickOverlay.addEventListener("click", clickHandler);
 }
 
-// Export/Import scénario (identique V2)
+// Export/Import scénario
 exportScenarioBtn?.addEventListener("click", exportScenario);
 function exportScenario() {
+  upgradeScenario(scenario);
   const blob = new Blob([JSON.stringify(scenario, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = (scenario.meta?.title?.replace(/\s+/g, "_") || "scenario") + ".json";
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function upgradeScenario(obj) {
+  if (!obj || !Array.isArray(obj.stops)) return obj;
+  let upgraded = false;
+  obj.stops.forEach((s) => {
+    if (!s?.answerPoint) return;
+    const ap = s.answerPoint;
+    if ("pxX" in ap || "pxY" in ap) {
+      s.answerPoint = { x: ap.pxX, y: ap.pxY };
+      upgraded = true;
+      return;
+    }
+    if ((ap.x ?? 0) <= 1 && (ap.y ?? 0) <= 1) {
+      const vidW = videoEl.videoWidth;
+      const vidH = videoEl.videoHeight;
+      if (vidW > 0 && vidH > 0) {
+        s.answerPoint = {
+          x: Math.round((ap.x || 0) * vidW),
+          y: Math.round((ap.y || 0) * vidH),
+        };
+        upgraded = true;
+      }
+    }
+  });
+  if (upgraded) obj.version = 3;
+  return obj;
 }
 scenarioFileInput?.addEventListener("change", (e) => {
   const f = e.target.files[0]; if (!f) return;
@@ -1044,7 +1072,7 @@ scenarioFileInput?.addEventListener("change", (e) => {
     try {
       const obj = JSON.parse(fr.result);
       if (!obj.stops || !Array.isArray(obj.stops)) throw new Error("JSON invalide (stops manquant).");
-      scenario = obj;
+      scenario = upgradeScenario(obj);
       refreshStopsTable(); redrawOverlay();
       alert("Scénario chargé.");
     } catch (e) { alert("Erreur: " + e.message); }
@@ -1123,6 +1151,13 @@ closeSummaryBtn?.addEventListener("click", () => {
 // Événements globaux
 document.addEventListener("DOMContentLoaded", () => { ensureWrap(); resizeOverlayToVideo(); renderSessionStats(); });
 videoEl?.addEventListener("loadedmetadata", resizeOverlayToVideo);
+videoEl?.addEventListener("loadedmetadata", () => {
+  if (scenario.version < 3) {
+    upgradeScenario(scenario);
+    refreshStopsTable();
+    redrawOverlay();
+  }
+});
 videoEl?.addEventListener("loadedmetadata", () => {
   try {
     const stream = videoEl.captureStream?.();
