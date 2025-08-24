@@ -122,6 +122,7 @@ function hidePrompt() { if(!overlayPrompt) return; overlayPrompt.classList.add("
 function clearOptions() { if(!optionsWrap) return; optionsWrap.innerHTML = ""; optionsWrap.classList.add("hidden"); }
 function renderOptions(options, onPick) {
   clearOptions();
+  if (!optionsWrap) return;
   options.forEach(opt => { const b = document.createElement("button"); b.textContent = opt; b.onclick = () => onPick(opt); optionsWrap.appendChild(b); });
   optionsWrap.classList.remove("hidden"); positionOptionsWrap();
 }
