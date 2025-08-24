@@ -262,32 +262,35 @@ function hideRestartButton() {
   restartExerciseBtn?.classList.add("hidden");
 }
 function renderOptions(options, onPick) {
-  if (!optionsWrap) return;
+  if (!optionsWrap) return [];
   if (optionsWrap._hideTO) {
     clearTimeout(optionsWrap._hideTO);
     optionsWrap._hideTO = null;
   }
   optionsWrap.innerHTML = "";
+  const buttons = [];
   options.forEach(opt => {
     const b = document.createElement("button");
     b.textContent = opt;
     b.onclick = () => {
       if (isCentering) return;
-      onPick(opt);
+      onPick(opt, b);
     };
     b.addEventListener("keydown", e => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         if (isCentering) return;
-        onPick(opt);
+        onPick(opt, b);
       }
     });
     optionsWrap.appendChild(b);
+    buttons.push(b);
   });
   optionsWrap.classList.add("visible");
   optionsWrap.classList.remove("fade");
   positionOptionsWrap();
   optionsWrap.querySelector("button")?.focus();
+  return buttons;
 }
 
 // Zones
@@ -572,19 +575,29 @@ function handleStop(index) {
   } else if (stop.type === "next-shot") {
     clickOverlay.style.pointerEvents = "none";
     const options = stop.options && stop.options.length ? stop.options : ["CD croisé","Revers long de ligne","Amorti","Lob"];
-    renderOptions(options, (opt) => {
+    let optionButtons = [];
+    optionButtons = renderOptions(options, (opt, btn) => {
       const now = performance.now();
       const rtMs = Math.round(now - pauseTime);
       const correct = stop.correct ? (opt === stop.correct) : false;
       results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, choice: opt });
-      clearOptions();
-      const fb = correct ? "Bonne réponse !" : `Mauvaise réponse : ${stop.correct}`;
-      showPrompt(fb);
-      setTimeout(hidePrompt, endScreenDelayMs);
-      awaitingAnswer = false;
-      nextStopIdx++; pauseGuard = false;
-      if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
-      else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
+
+      optionButtons.forEach(b => { b.disabled = true; });
+      if (correct) {
+        btn.classList.add("correct");
+      } else {
+        btn.classList.add("incorrect");
+        const correctBtn = optionButtons.find(b => b.textContent === stop.correct);
+        correctBtn?.classList.add("correct");
+      }
+      hidePrompt();
+      setTimeout(() => {
+        clearOptions();
+        awaitingAnswer = false;
+        nextStopIdx++; pauseGuard = false;
+        if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
+        else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
+      }, endScreenDelayMs);
     });
     showPrompt("Choisis le <b>coup</b> que tu jouerais dans cette situation.");
   }
