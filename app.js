@@ -109,7 +109,11 @@ function resizeOverlayToVideo() {
   redrawOverlay();
 }
 
-// Place la consigne en HAUT-GAUCHE de la vidéo
+// Positionne la consigne au-dessus de la vidéo : centrée horizontalement
+// avec un décalage vertical fixe (12px). Les coordonnées sont ensuite
+// bornées pour rester dans les limites du conteneur.
+// Pour ajuster la position si l'interface évolue, modifier le calcul de
+// `left` et `top` ci-dessous en fonction des nouveaux repères ou marges.
 function positionPrompt() {
   if (!overlayPrompt) return;
   ensureWrap();
