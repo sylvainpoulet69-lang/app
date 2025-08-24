@@ -7,7 +7,8 @@ videoEl.framerate = 25;
 const overlay = $("#overlay");
 overlay.tabIndex = -1;
 const clickOverlay = $("#clickOverlay");
-clickOverlay.tabIndex = -1;
+// Allow the overlay to receive focus so space/arrow keys work immediately
+clickOverlay.tabIndex = 0;
 const overlayPrompt = $("#overlayPrompt");
 const videoContainer = $("#videoContainer");
 const sessionEnd = $("#sessionEnd");
@@ -1113,24 +1114,26 @@ startSessionBtn?.addEventListener("click", () => {
   try {
     isCentering = true;
     videoContainer?.scrollIntoView({ behavior: "smooth", block: "center" });
-    let fallbackTO;
+    let settleTO, fallbackTO;
     const settle = () => {
       if (!isCentering) return;
       clearTimeout(fallbackTO);
+      window.removeEventListener("scroll", onScroll);
       requestAnimationFrame(() => {
-        setTimeout(() => {
-          resizeOverlayToVideo();
-          isCentering = false;
-          clickOverlay.focus?.();
-        }, 0);
+        // Force layout to flush and recalc bounding boxes
+        videoEl.getBoundingClientRect();
+        resizeOverlayToVideo();
+        isCentering = false;
+        clickOverlay.focus?.();
       });
     };
+    const onScroll = () => {
+      clearTimeout(settleTO);
+      settleTO = setTimeout(settle, 100);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
     fallbackTO = setTimeout(settle, 1000);
-    if ("onscrollend" in window) {
-      window.addEventListener("scrollend", settle, { once: true });
-    } else {
-      settle();
-    }
   } catch (e) {
     isCentering = false;
     clickOverlay.focus?.();
