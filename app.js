@@ -94,23 +94,35 @@ function resizeOverlayToVideo() {
 // Place la consigne en HAUT-GAUCHE de la vidéo
 function positionPrompt() {
   if (!overlayPrompt) return;
+  ensureWrap();
   const rect = wrap.getBoundingClientRect();
-  overlayPrompt.style.position = "fixed";
-  overlayPrompt.style.left = (rect.left + 12) + "px";
-  overlayPrompt.style.top  = (rect.top  + 12) + "px";
-  overlayPrompt.style.transform = "none";
-  overlayPrompt.style.maxWidth = Math.max(260, rect.width * 0.5) + "px";
-  overlayPrompt.style.fontWeight = "600";
-  overlayPrompt.style.zIndex = 9999;
+  const box = overlayPrompt;
+  box.style.position = "absolute";
+  box.style.transform = "none";
+  box.style.maxWidth = Math.max(260, rect.width * 0.5) + "px";
+  box.style.fontWeight = "600";
+  box.style.zIndex = 9999;
+  let left = 12;
+  let top = 12;
+  left = Math.max(0, Math.min(rect.width - box.offsetWidth, left));
+  top = Math.max(0, Math.min(rect.height - box.offsetHeight, top));
+  box.style.left = left + "px";
+  box.style.top = top + "px";
 }
 
 function positionOptionsWrap() {
   if (!optionsWrap) return;
+  ensureWrap();
   const rect = wrap.getBoundingClientRect();
-  optionsWrap.style.position = "fixed";
-  optionsWrap.style.transform = "translate(-50%, -50%)";
-  optionsWrap.style.left = (rect.left + rect.width/2) + "px";
-  optionsWrap.style.top  = (rect.top  + rect.height*0.78) + "px";
+  const box = optionsWrap;
+  box.style.position = "absolute";
+  box.style.transform = "none";
+  let left = rect.width / 2 - box.offsetWidth / 2;
+  let top = rect.height * 0.78 - box.offsetHeight / 2;
+  left = Math.max(0, Math.min(rect.width - box.offsetWidth, left));
+  top = Math.max(0, Math.min(rect.height - box.offsetHeight, top));
+  box.style.left = left + "px";
+  box.style.top = top + "px";
 }
 
 function showPrompt(html) { if(!overlayPrompt) return; overlayPrompt.innerHTML = html; overlayPrompt.classList.remove("hidden"); positionPrompt(); }
