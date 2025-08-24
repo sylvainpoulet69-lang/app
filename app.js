@@ -76,6 +76,7 @@ function isTypingElement(el) {
 function globalKeyHandler(e) {
   if (e.defaultPrevented || e.repeat) return;
   if (isTypingElement(e.target)) return;
+  if (awaitingAnswer && optionsWrap?.contains?.(e.target)) return;
   if (!sessionEnd?.classList.contains("hidden")) return;
   const key = e.key.toLowerCase();
   switch (key) {
@@ -274,11 +275,19 @@ function renderOptions(options, onPick) {
       if (isCentering) return;
       onPick(opt);
     };
+    b.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        if (isCentering) return;
+        onPick(opt);
+      }
+    });
     optionsWrap.appendChild(b);
   });
   optionsWrap.classList.add("visible");
   optionsWrap.classList.remove("fade");
   positionOptionsWrap();
+  optionsWrap.querySelector("button")?.focus();
 }
 
 // Zones
@@ -561,13 +570,17 @@ function handleStop(index) {
     clickOverlay.addEventListener("click", clickHandler, { once:true });
 
   } else if (stop.type === "next-shot") {
+    clickOverlay.style.pointerEvents = "none";
     const options = stop.options && stop.options.length ? stop.options : ["CD croisé","Revers long de ligne","Amorti","Lob"];
     renderOptions(options, (opt) => {
       const now = performance.now();
       const rtMs = Math.round(now - pauseTime);
       const correct = stop.correct ? (opt === stop.correct) : false;
       results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, choice: opt });
-      clearOptions(); clickOverlay.style.pointerEvents = "none"; hidePrompt();
+      clearOptions();
+      const fb = correct ? "Bonne réponse !" : `Mauvaise réponse : ${stop.correct}`;
+      showPrompt(fb);
+      setTimeout(hidePrompt, endScreenDelayMs);
       awaitingAnswer = false;
       nextStopIdx++; pauseGuard = false;
       if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
