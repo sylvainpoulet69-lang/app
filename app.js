@@ -125,14 +125,53 @@ function positionOptionsWrap() {
   box.style.top = top + "px";
 }
 
-function showPrompt(html) { if(!overlayPrompt) return; overlayPrompt.innerHTML = html; overlayPrompt.classList.remove("hidden"); positionPrompt(); }
-function hidePrompt() { if(!overlayPrompt) return; overlayPrompt.classList.add("hidden"); }
-function clearOptions() { if(!optionsWrap) return; optionsWrap.innerHTML = ""; optionsWrap.classList.add("hidden"); }
-function renderOptions(options, onPick) {
-  clearOptions();
+function showPrompt(html) {
+  if (!overlayPrompt) return;
+  if (overlayPrompt._hideTO) {
+    clearTimeout(overlayPrompt._hideTO);
+    overlayPrompt._hideTO = null;
+  }
+  overlayPrompt.innerHTML = html;
+  overlayPrompt.classList.add("visible");
+  overlayPrompt.classList.remove("fade");
+  positionPrompt();
+}
+function hidePrompt() {
+  if (!overlayPrompt) return;
+  overlayPrompt.classList.remove("visible");
+  overlayPrompt.classList.add("fade");
+  if (overlayPrompt._hideTO) clearTimeout(overlayPrompt._hideTO);
+  overlayPrompt._hideTO = setTimeout(() => {
+    overlayPrompt.innerHTML = "";
+    overlayPrompt._hideTO = null;
+  }, 300);
+}
+function clearOptions() {
   if (!optionsWrap) return;
-  options.forEach(opt => { const b = document.createElement("button"); b.textContent = opt; b.onclick = () => onPick(opt); optionsWrap.appendChild(b); });
-  optionsWrap.classList.remove("hidden"); positionOptionsWrap();
+  optionsWrap.classList.remove("visible");
+  optionsWrap.classList.add("fade");
+  if (optionsWrap._hideTO) clearTimeout(optionsWrap._hideTO);
+  optionsWrap._hideTO = setTimeout(() => {
+    optionsWrap.innerHTML = "";
+    optionsWrap._hideTO = null;
+  }, 300);
+}
+function renderOptions(options, onPick) {
+  if (!optionsWrap) return;
+  if (optionsWrap._hideTO) {
+    clearTimeout(optionsWrap._hideTO);
+    optionsWrap._hideTO = null;
+  }
+  optionsWrap.innerHTML = "";
+  options.forEach(opt => {
+    const b = document.createElement("button");
+    b.textContent = opt;
+    b.onclick = () => onPick(opt);
+    optionsWrap.appendChild(b);
+  });
+  optionsWrap.classList.add("visible");
+  optionsWrap.classList.remove("fade");
+  positionOptionsWrap();
 }
 
 // Zones
