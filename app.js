@@ -67,7 +67,7 @@ function globalKeyHandler(e) {
   switch (key) {
     case KEYMAP.playPause:
       e.preventDefault();
-      if (!videoEl.src) break;
+      if (!videoEl.src || awaitingAnswer) break;
       if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
       flashButton(playPauseBtn);
       break;
@@ -138,6 +138,8 @@ let sessionActive = false;
 let pauseGuard = false;
 // setTimeout ID for ending the session
 let endSessionTimeoutId = null;
+let awaitingAnswer = false;
+let lockedTime = 0;
 
 // wrap overlay au-dessus de la vidéo
 let wrap = null;
@@ -416,6 +418,8 @@ function tickStopWatcher() {
 
 function handleStop(index) {
   const stop = scenario.stops[index];
+  awaitingAnswer = true;
+  lockedTime = stop.t;
   const pauseTime = performance.now();
   overlay.style.pointerEvents = "auto";
   redrawOverlay();
@@ -445,6 +449,7 @@ function handleStop(index) {
       overlay.removeEventListener("click", clickHandler);
       overlay.style.pointerEvents = "none";
       hidePrompt();
+      awaitingAnswer = false;
       nextStopIdx++; pauseGuard = false;
       if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
       else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
@@ -478,6 +483,7 @@ function handleStop(index) {
       overlay.removeEventListener("click", clickHandler);
       overlay.style.pointerEvents = "none";
       hidePrompt();
+      awaitingAnswer = false;
       nextStopIdx++; pauseGuard = false;
       if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
       else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
@@ -492,6 +498,7 @@ function handleStop(index) {
       const correct = stop.correct ? (opt === stop.correct) : false;
       results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, choice: opt });
       clearOptions(); overlay.style.pointerEvents = "none"; hidePrompt();
+      awaitingAnswer = false;
       nextStopIdx++; pauseGuard = false;
       if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
       else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
@@ -970,7 +977,7 @@ startSessionBtn?.addEventListener("click", () => {
 
 // Lecture/Pause bouton
 playPauseBtn?.addEventListener("click", () => {
-  if (!videoEl.src) return;
+  if (!videoEl.src || awaitingAnswer) return;
   if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
 });
 
@@ -1030,4 +1037,17 @@ videoEl?.addEventListener("loadedmetadata", () => {
     videoEl.addEventListener("timeupdate", handler);
   }
 });
-videoEl?.addEventListener("play", () => { if (sessionActive && pauseGuard) requestAnimationFrame(tickStopWatcher); });
+videoEl?.addEventListener("play", () => {
+  if (awaitingAnswer) {
+    videoEl.pause();
+    videoEl.currentTime = lockedTime;
+    return;
+  }
+  if (sessionActive && pauseGuard) requestAnimationFrame(tickStopWatcher);
+});
+videoEl?.addEventListener("seeking", () => {
+  if (awaitingAnswer) {
+    videoEl.pause();
+    videoEl.currentTime = lockedTime;
+  }
+});
