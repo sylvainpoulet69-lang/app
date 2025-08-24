@@ -83,7 +83,7 @@ function globalKeyHandler(e) {
     case KEYMAP.playPause:
       e.preventDefault();
       if (!videoEl.src || awaitingAnswer) break;
-      if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
+      togglePlayback();
       flashButton(playPauseBtn);
       break;
     case KEYMAP.predict:
@@ -397,6 +397,7 @@ function startSession() {
   playQueue = scenario.stops.map((_,i)=>i);
   nextStopIdx = 0; results = [];
   sessionActive = true; editorMode = false;
+  videoEl.controls = false;
   hidePrompt(); clearOptions(); sessionEnd?.classList.add("hidden");
   // Compte à rebours 5 -> 1 -> GO puis lecture
   runCountdownThen(() => {
@@ -530,7 +531,7 @@ function handleStop(index) {
       awaitingAnswer = false;
       nextStopIdx++; pauseGuard = false;
       if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
-      else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
+      else { togglePlayback(); requestAnimationFrame(tickStopWatcher); }
     };
     clickOverlay.addEventListener("click", clickHandler);
 
@@ -568,7 +569,7 @@ function handleStop(index) {
       awaitingAnswer = false;
       nextStopIdx++; pauseGuard = false;
       if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
-      else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
+      else { togglePlayback(); requestAnimationFrame(tickStopWatcher); }
     };
     clickOverlay.addEventListener("click", clickHandler, { once:true });
 
@@ -596,7 +597,7 @@ function handleStop(index) {
         awaitingAnswer = false;
         nextStopIdx++; pauseGuard = false;
         if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
-        else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
+        else { togglePlayback(); requestAnimationFrame(tickStopWatcher); }
       }, endScreenDelayMs);
     });
     showPrompt("Choisis le <b>coup</b> que tu jouerais dans cette situation.");
@@ -1188,9 +1189,6 @@ function togglePlayback() {
   if (!canTogglePlayback()) return;
   if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
 }
-
-// Lecture/Pause bouton
-playPauseBtn?.addEventListener("click", togglePlayback);
 
 // Toggle play/pause when clicking/tapping on the video area
 videoContainer?.addEventListener("pointerup", (e) => {
