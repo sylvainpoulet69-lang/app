@@ -1010,6 +1010,8 @@ function cleanupEditorClickHandlers() {
     clickOverlay.removeEventListener("click", zoneSelectHandler);
     zoneSelectHandler = null;
   }
+  // Ensure the overlay doesn't block interactions once handlers are removed.
+  clickOverlay.style.pointerEvents = "none";
 }
 
 function setAnswerForStop(index) {
@@ -1224,7 +1226,14 @@ closeSummaryBtn?.addEventListener("click", () => {
 });
 
 // Événements globaux
-document.addEventListener("DOMContentLoaded", () => { ensureWrap(); resizeOverlayToVideo(); renderSessionStats(); });
+document.addEventListener("DOMContentLoaded", () => {
+  ensureWrap();
+  resizeOverlayToVideo();
+  renderSessionStats();
+  // Make the click overlay transparent by default so the video controls
+  // are usable immediately in editor mode.
+  clickOverlay.style.pointerEvents = "none";
+});
 videoEl?.addEventListener("loadedmetadata", resizeOverlayToVideo);
 videoEl?.addEventListener("loadedmetadata", () => {
   if (scenario.version < 3) {
