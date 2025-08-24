@@ -5,16 +5,22 @@ h1 { margin: 0 0 6px; font-size: 24px; }
 main { padding: 16px 24px; display: grid; gap: 20px; }
 .panel { background: #14171f; border: 1px solid #272b33; border-radius: 12px; padding: 16px; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+/* Zone configuration removed; using zone-mode instead */
+
+.zone-mode {
+  color: #fff;
+}
+
 .decision-config {
-   border: 2px solid #FFC107;
-   border-radius: 6px;
-   padding: 10px;
-   margin-top: 12px;
-   color: #fff;
-   display: flex;
-   flex-direction: column;
-   gap: 8px;
- }
+  background: #2a6ef1;
+  color: #fff;
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 label { display: flex; gap: 8px; align-items: center; }
 label.zone-mode { gap: 6px; }
 input[type=file], input[type=text] { background: #0e0f12; color: #e7e9ee; border: 1px solid #333844; border-radius: 8px; padding: 8px; }
