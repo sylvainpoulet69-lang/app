@@ -1171,21 +1171,32 @@ startSessionBtn?.addEventListener("click", () => {
     clickOverlay.style.pointerEvents = awaitingAnswer ? "auto" : "none";
     clickOverlay.focus?.();
   }
-  startSession();
+startSession();
 });
+
+// Helper determining if playback can toggle
+function canTogglePlayback() {
+  if (!videoEl.src) return false;
+  if (awaitingAnswer || isCentering) return false;
+  if (!sessionEnd?.classList.contains("hidden")) return false;
+  if (pendingSetAnswerForIndex != null) return false;
+  if (answerPointHandler || gridSelectHandler || zoneSelectHandler) return false;
+  return true;
+}
+
+function togglePlayback() {
+  if (!canTogglePlayback()) return;
+  if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
+}
 
 // Lecture/Pause bouton
-playPauseBtn?.addEventListener("click", () => {
-  if (!videoEl.src || awaitingAnswer) return;
-  if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
-});
+playPauseBtn?.addEventListener("click", togglePlayback);
 
-// Toggle play/pause when clicking directly on the video
-videoEl.addEventListener("click", (e) => {
-  if (e.target !== videoEl) return;
-  if (!videoEl.src || awaitingAnswer || isCentering) return;
-  if (!sessionEnd?.classList.contains("hidden")) return;
-  if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
+// Toggle play/pause when clicking/tapping on the video area
+videoContainer?.addEventListener("pointerup", (e) => {
+  if (e.button !== 0) return;
+  if (e.target !== videoEl && e.target !== clickOverlay) return;
+  togglePlayback();
 });
 
 playbackRateSelect?.addEventListener("change", () => {
