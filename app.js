@@ -1199,6 +1199,7 @@ startSession();
 
 // Toggle play/pause when clicking/tapping on the video area
 videoContainer?.addEventListener("pointerup", (e) => {
+  if (videoEl.controls) return;
   if (e.button !== 0) return;
   if (e.target !== videoEl && e.target !== clickOverlay) return;
   togglePlayback();
