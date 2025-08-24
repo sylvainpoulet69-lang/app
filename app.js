@@ -51,18 +51,13 @@ const perStopListEl = $("#perStopScores");
 const progressChartCanvas = $("#progressChart");
 const sessionComparisonCanvas = $("#sessionComparisonChart");
 
-let videoRect = null;
-function refreshVideoRect() {
-  videoRect = videoEl.getBoundingClientRect();
-}
-
 if (window.ResizeObserver && videoContainer) {
-  new ResizeObserver(refreshVideoRect).observe(videoContainer);
+  new ResizeObserver(resizeOverlayToVideo).observe(videoContainer);
 }
 
-window.addEventListener("resize", refreshVideoRect);
-window.addEventListener("orientationchange", refreshVideoRect);
-document.addEventListener("fullscreenchange", refreshVideoRect);
+window.addEventListener("resize", resizeOverlayToVideo);
+window.addEventListener("orientationchange", resizeOverlayToVideo);
+document.addEventListener("fullscreenchange", resizeOverlayToVideo);
 
 function flashButton(btn) {
   if (!btn) return;
@@ -289,10 +284,6 @@ function renderOptions(options, onPick) {
 }
 
 // Zones
-function getVideoRect() {
-  if (videoRect === null) refreshVideoRect();
-  return videoRect;
-}
 function getZoneFromSplit(relX, relY, gs) {
   const splitX = gs?.x ?? 0.5;
   const splitY = gs?.y ?? 0.5;
@@ -301,15 +292,15 @@ function getZoneFromSplit(relX, relY, gs) {
   if (relX < splitX && relY >= splitY) return { col:0,row:1, id:3 };
   return { col:1,row:1, id:4 };
 }
-function getRelFromEvent(evt) {
-  const rect = getVideoRect();
-  const relX = (evt.clientX - rect.left) / rect.width;
-  const relY = (evt.clientY - rect.top) / rect.height;
-  const x = Math.max(0, Math.min(1, relX));
-  const y = Math.max(0, Math.min(1, relY));
-  const srcX = x * (videoEl.videoWidth || 0);
-  const srcY = y * (videoEl.videoHeight || 0);
-  return { relX: x, relY: y, srcX, srcY };
+function getClickCoords(evt) {
+  const rect = videoEl.getBoundingClientRect();
+  const cx = evt.clientX - rect.left;
+  const cy = evt.clientY - rect.top;
+  const relX = Math.max(0, Math.min(1, cx / rect.width));
+  const relY = Math.max(0, Math.min(1, cy / rect.height));
+  const pxX = Math.round(relX * (videoEl.videoWidth || 0));
+  const pxY = Math.round(relY * (videoEl.videoHeight || 0));
+  return { cx, cy, relX, relY, pxX, pxY, rect };
 }
 
 // Dessin overlay
@@ -317,9 +308,9 @@ let activeGridForEditor = null;
 let feedbackFlash = null; // {zones:[{id,color}], endsAt, grid}
 let clickFeedbacks = []; // {x,y,color,radius,expiresAt}
 
-function flashCircle(relX, relY, color, durationMs) {
+function flashCircle(cx, cy, color, durationMs) {
   const radius = 20;
-  clickFeedbacks.push({ x: relX, y: relY, color, radius, expiresAt: performance.now() + durationMs });
+  clickFeedbacks.push({ x: cx, y: cy, color, radius, expiresAt: performance.now() + durationMs });
   redrawOverlay();
 }
 
@@ -351,7 +342,7 @@ function redrawOverlay() {
     clickFeedbacks = clickFeedbacks.filter(c => c.expiresAt > now);
     clickFeedbacks.forEach(c => {
       ctx.beginPath();
-      ctx.arc(c.x * overlay.width, c.y * overlay.height, c.radius, 0, Math.PI * 2);
+      ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
       ctx.strokeStyle = c.color;
       ctx.lineWidth = 4;
       ctx.stroke();
@@ -507,7 +498,7 @@ function handleStop(index) {
       }
       const now = performance.now();
       const rtMs = Math.round(now - pauseTime);
-      const rel = getRelFromEvent(evt);
+      const rel = getClickCoords(evt);
       const zoneObj = getZoneFromSplit(rel.relX, rel.relY, stop.gridSplit);
       const chosenId = zoneObj.id;
       const correctId = stop.answerZone?.id ?? null;
@@ -543,26 +534,28 @@ function handleStop(index) {
       }
       const now = performance.now();
       const rtMs = Math.round(now - pauseTime);
-      const rel = getRelFromEvent(evt);
+      const rel = getClickCoords(evt);
       let correct = false;
       let distancePx = null;
       if (stop.answerPoint) {
-        const answerSrcX = stop.answerPoint.x * (videoEl.videoWidth || 0);
-        const answerSrcY = stop.answerPoint.y * (videoEl.videoHeight || 0);
-        const dx = rel.srcX - answerSrcX;
-        const dy = rel.srcY - answerSrcY;
+        const answerSrcX = stop.answerPoint.x;
+        const answerSrcY = stop.answerPoint.y;
+        const dx = rel.pxX - answerSrcX;
+        const dy = rel.pxY - answerSrcY;
         distancePx = Math.sqrt(dx*dx + dy*dy);
         const tol = tolPx;
         correct = distancePx <= tol;
         const chosenColor = correct ? "rgba(16,185,129,0.95)" : "rgba(239,68,68,0.95)";
-        flashCircle(rel.relX, rel.relY, chosenColor, 1500);
+        flashCircle(rel.cx, rel.cy, chosenColor, 1500);
         if (!correct) {
-          flashCircle(stop.answerPoint.x, stop.answerPoint.y, "rgba(16,185,129,0.95)", 1500);
+          const dispX = stop.answerPoint.x / (videoEl.videoWidth || 1) * overlay.width;
+          const dispY = stop.answerPoint.y / (videoEl.videoHeight || 1) * overlay.height;
+          flashCircle(dispX, dispY, "rgba(16,185,129,0.95)", 1500);
         }
       } else {
-        flashCircle(rel.relX, rel.relY, "rgba(239,68,68,0.95)", 1500);
+        flashCircle(rel.cx, rel.cy, "rgba(239,68,68,0.95)", 1500);
       }
-      results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, distancePx, clickX: rel.relX, clickY: rel.relY });
+      results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, distancePx, clickX: rel.pxX, clickY: rel.pxY });
       clickOverlay.removeEventListener("click", clickHandler);
       clickOverlay.style.pointerEvents = "none";
       hidePrompt();
@@ -931,7 +924,7 @@ function refreshStopsTable() {
         if (s.zoneMode) {
           details = s.answerZone ? `Réponse (zone 2×2): col=${s.answerZone.col+1}, ligne=${s.answerZone.row+1}` : "Réponse zone non définie";
         } else {
-          details = s.answerPoint ? `Réponse: x=${s.answerPoint.x.toFixed(2)}, y=${s.answerPoint.y.toFixed(2)}` : "Réponse non définie";
+          details = s.answerPoint ? `Réponse: x=${s.answerPoint.x}, y=${s.answerPoint.y}` : "Réponse non définie";
         }
       } else {
         details = `Options: ${(s.options||[]).join(", ")} | Correct: ${s.correct||"(non défini)"}`;
@@ -981,9 +974,9 @@ function setAnswerForStop(index) {
     showPrompt("Clique sur l'endroit où la balle <b>atterrit</b>.");
     clickOverlay.style.pointerEvents = "auto";
     const clickHandler = (evt) => {
-      const rel = getRelFromEvent(evt);
-      stop.answerPoint = { x: rel.relX, y: rel.relY };
-      flashCircle(rel.relX, rel.relY, "rgba(128,128,128,0.8)", 700);
+      const rel = getClickCoords(evt);
+      stop.answerPoint = { x: rel.pxX, y: rel.pxY };
+      flashCircle(rel.cx, rel.cy, "rgba(128,128,128,0.8)", 700);
       clickOverlay.removeEventListener("click", clickHandler);
       clickOverlay.style.pointerEvents = "none";
       hidePrompt();
@@ -1000,7 +993,7 @@ function setAnswerForStop(index) {
   clickOverlay.style.pointerEvents = "auto";
 
   const gridHandler = (evt) => {
-    const rel = getRelFromEvent(evt);
+    const rel = getClickCoords(evt);
     if (definingGridStep === 1) {
       tempGrid.x = rel.relX; definingGridStep = 2;
       activeGridForEditor = {...tempGrid};
@@ -1021,7 +1014,7 @@ function chooseZoneForStop(index) {
   const stop = scenario.stops[index];
   showPrompt("Clique maintenant dans la <b>zone correcte</b> (1/2/3/4).");
   const clickHandler = (evt) => {
-    const rel = getRelFromEvent(evt);
+    const rel = getClickCoords(evt);
     const z = getZoneFromSplit(rel.relX, rel.relY, stop.gridSplit);
     stop.answerZone = { id: z.id, col: z.col, row: z.row };
     clickOverlay.removeEventListener("click", clickHandler);
@@ -1066,13 +1059,13 @@ startSessionBtn?.addEventListener("click", () => {
     videoContainer?.scrollIntoView({ behavior: "smooth", block: "center" });
     if ("onscrollend" in window) {
       window.addEventListener("scrollend", () => {
-        refreshVideoRect();
+        resizeOverlayToVideo();
         isCentering = false;
         clickOverlay.focus?.();
       }, { once: true });
     } else {
       setTimeout(() => requestAnimationFrame(() => {
-        refreshVideoRect();
+        resizeOverlayToVideo();
         isCentering = false;
           clickOverlay.focus?.();
       }), 0);
@@ -1128,7 +1121,6 @@ closeSummaryBtn?.addEventListener("click", () => {
 });
 
 // Événements globaux
-window.addEventListener("resize", () => { resizeOverlayToVideo(); });
 document.addEventListener("DOMContentLoaded", () => { ensureWrap(); resizeOverlayToVideo(); renderSessionStats(); });
 videoEl?.addEventListener("loadedmetadata", resizeOverlayToVideo);
 videoEl?.addEventListener("loadedmetadata", () => {
