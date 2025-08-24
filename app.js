@@ -269,11 +269,8 @@ function renderOptions(options, onPick) {
   options.forEach(opt => {
     const b = document.createElement("button");
     b.textContent = opt;
-    b.onclick = (evt) => {
-      if (isCentering) {
-        evt.preventDefault();
-        return;
-      }
+    b.onclick = () => {
+      if (isCentering) return;
       onPick(opt);
     };
     optionsWrap.appendChild(b);
@@ -494,10 +491,7 @@ function handleStop(index) {
   if (stop.type === "predict-landing" && stop.zoneMode) {
     showPrompt("Clique dans la <b>zone</b> où la balle va <b>tomber</b>.");
     const clickHandler = (evt) => {
-      if (isCentering) {
-        evt.preventDefault();
-        return;
-      }
+      if (isCentering) return;
       const now = performance.now();
       const rtMs = Math.round(now - pauseTime);
       const rel = getClickCoords(evt);
@@ -530,10 +524,7 @@ function handleStop(index) {
   } else if (stop.type === "predict-landing") {
     showPrompt("Clique sur la <b>zone d'atterrissage</b> de la balle.");
     const clickHandler = (evt) => {
-      if (isCentering) {
-        evt.preventDefault();
-        return;
-      }
+      if (isCentering) return;
       const now = performance.now();
       const rtMs = Math.round(now - pauseTime);
       const rel = getClickCoords(evt);
@@ -1117,22 +1108,28 @@ scenarioFileInput?.addEventListener("change", (e) => {
 });
 
 startSessionBtn?.addEventListener("click", () => {
+  if (isCentering) return;
   if (!scenario.stops?.length) { alert("Pas d'arrêts. Chargez un scénario ou créez-en dans l'éditeur."); return; }
   try {
     isCentering = true;
     videoContainer?.scrollIntoView({ behavior: "smooth", block: "center" });
-    if ("onscrollend" in window) {
-      window.addEventListener("scrollend", () => {
-        resizeOverlayToVideo();
-        isCentering = false;
-        clickOverlay.focus?.();
-      }, { once: true });
-    } else {
-      setTimeout(() => requestAnimationFrame(() => {
-        resizeOverlayToVideo();
-        isCentering = false;
+    let fallbackTO;
+    const settle = () => {
+      if (!isCentering) return;
+      clearTimeout(fallbackTO);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          resizeOverlayToVideo();
+          isCentering = false;
           clickOverlay.focus?.();
-      }), 0);
+        }, 0);
+      });
+    };
+    fallbackTO = setTimeout(settle, 1000);
+    if ("onscrollend" in window) {
+      window.addEventListener("scrollend", settle, { once: true });
+    } else {
+      settle();
     }
   } catch (e) {
     isCentering = false;
