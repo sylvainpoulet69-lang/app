@@ -242,6 +242,14 @@ function clearOptions() {
     optionsWrap._hideTO = null;
   }, 300);
 }
+
+function showRestartButton() {
+  restartExerciseBtn?.classList.remove("hidden");
+}
+
+function hideRestartButton() {
+  restartExerciseBtn?.classList.add("hidden");
+}
 function renderOptions(options, onPick) {
   if (!optionsWrap) return;
   if (optionsWrap._hideTO) {
@@ -366,10 +374,12 @@ function startSession() {
     videoEl.currentTime = 0;
     videoEl.play();
     tickStopWatcher();
+    showRestartButton();
   });
 }
 
 function finishSession() {
+  hideRestartButton();
   clearTimeout(endSessionTimeoutId);
   endSessionTimeoutId = null;
   sessionActive = false;
@@ -423,6 +433,7 @@ function resetTrainingState() {
   awaitingAnswer = false;
   sessionActive = false;
   editorMode = true;
+  hideRestartButton();
   clickFeedbacks = [];
   feedbackFlash = null;
   hidePrompt();
@@ -1056,6 +1067,7 @@ restartSessionBtn?.addEventListener("click", () => {
 closeSummaryBtn?.addEventListener("click", () => {
   sessionEnd?.classList.add("hidden");
   editorMode = true;
+  hideRestartButton();
 });
 
 // Événements globaux
