@@ -52,13 +52,10 @@ footer { padding: 12px 24px; border-top: 1px solid #23262d; color: #a8adbb; }
 }
 
 .shortcut-help {
-  background: #2a6ef1;
   color: #fff;
-  border-radius: 8px;
-  padding: 4px 8px;
+  font-weight: 500;
+  margin-top: 8px;
   font-size: 13px;
-  display: inline-block;
-  margin-bottom: 8px;
 }
 
 @keyframes flash {
