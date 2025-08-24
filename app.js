@@ -142,6 +142,9 @@ let endSessionTimeoutId = null;
 let awaitingAnswer = false;
 let lockedTime = 0;
 let tickRAF = null;
+let countdownIntervalId = null;
+let countdownTimeoutId = null;
+let isRestarting = false;
 // wrap overlay au-dessus de la vidéo
 let wrap = null;
 function ensureWrap() {
@@ -403,9 +406,13 @@ function endSessionWithDelay() {
     finishSession();
   }, delay);
 }
-function resetExercise() {
+function resetTrainingState() {
   clearTimeout(endSessionTimeoutId);
   endSessionTimeoutId = null;
+  clearInterval(countdownIntervalId);
+  countdownIntervalId = null;
+  clearTimeout(countdownTimeoutId);
+  countdownTimeoutId = null;
   if (tickRAF) { cancelAnimationFrame(tickRAF); tickRAF = null; }
   videoEl.pause();
   videoEl.currentTime = 0;
@@ -420,6 +427,8 @@ function resetExercise() {
   feedbackFlash = null;
   hidePrompt();
   clearOptions();
+  const ctx = overlay.getContext("2d");
+  ctx.clearRect(0,0,overlay.width,overlay.height);
   overlay.style.pointerEvents = "none";
   document.body.style.pointerEvents = "";
   sessionEnd?.classList.add("hidden");
@@ -535,6 +544,10 @@ function handleStop(index) {
 
 // Compte à rebours 5→1→GO (affiché en gros au centre + rappel en haut-gauche)
 function runCountdownThen(callback) {
+  clearInterval(countdownIntervalId);
+  countdownIntervalId = null;
+  clearTimeout(countdownTimeoutId);
+  countdownTimeoutId = null;
   let n = 5;
   // gros compteur dessiné dans le canvas
   const ctx = overlay.getContext("2d");
@@ -552,18 +565,20 @@ function runCountdownThen(callback) {
   showPrompt("La séance démarre dans…");
   positionPrompt();
   drawBig(String(n));
-  const timer = setInterval(() => {
+  countdownIntervalId = setInterval(() => {
     n--;
     if (n >= 1) {
       drawBig(String(n));
     } else {
-      clearInterval(timer);
+      clearInterval(countdownIntervalId);
+      countdownIntervalId = null;
       drawBig("GO!");
-      setTimeout(() => {
+      countdownTimeoutId = setTimeout(() => {
         // Nettoyage overlay + prompt et départ
         const ctx2 = overlay.getContext("2d");
         ctx2.clearRect(0,0,overlay.width,overlay.height);
         hidePrompt();
+        countdownTimeoutId = null;
         callback();
       }, 500);
     }
@@ -1024,8 +1039,12 @@ frameForwardBtn?.addEventListener("click", () => {
   videoEl.currentTime = Math.min(videoEl.duration, videoEl.currentTime + 1 / fps);
 });
 restartExerciseBtn?.addEventListener("click", () => {
+  if (isRestarting) return;
   if (confirm("Recommencer l'exercice ?")) {
-    resetExercise();
+    isRestarting = true;
+    resetTrainingState();
+    startSession();
+    isRestarting = false;
   }
 });
 
