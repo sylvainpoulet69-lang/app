@@ -70,12 +70,11 @@ footer { padding: 12px 24px; border-top: 1px solid #23262d; color: #a8adbb; }
   margin-left: 6px;
 }
 
-.shortcut-help {
-  color: #fff;
-  font-weight: 500;
-  margin-top: 8px;
-  font-size: 13px;
-}
+  .shortcut-help {
+    color: #fff;
+    margin-top: 8px;
+    font-size: 13px;
+  }
 
 @keyframes flash {
   from { box-shadow: 0 0 0 3px rgba(42,110,241,0.7); }
