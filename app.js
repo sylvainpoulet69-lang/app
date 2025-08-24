@@ -100,10 +100,6 @@ function positionPrompt() {
   overlayPrompt.style.top  = (rect.top  + 12) + "px";
   overlayPrompt.style.transform = "none";
   overlayPrompt.style.maxWidth = Math.max(260, rect.width * 0.5) + "px";
-  overlayPrompt.style.background = "rgba(0,0,0,0.55)";
-  overlayPrompt.style.color = "#fff";
-  overlayPrompt.style.padding = "8px 10px";
-  overlayPrompt.style.borderRadius = "8px";
   overlayPrompt.style.fontWeight = "600";
   overlayPrompt.style.zIndex = 9999;
 }
