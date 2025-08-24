@@ -6,6 +6,8 @@ const videoEl = $("#player");
 videoEl.framerate = 25;
 const overlay = $("#overlay");
 overlay.tabIndex = -1;
+const clickOverlay = $("#clickOverlay");
+clickOverlay.tabIndex = -1;
 const overlayPrompt = $("#overlayPrompt");
 const videoContainer = $("#videoContainer");
 const sessionEnd = $("#sessionEnd");
@@ -172,6 +174,7 @@ function ensureWrap() {
   videoEl.parentNode.insertBefore(wrap, videoEl);
   wrap.appendChild(videoEl);
   wrap.appendChild(overlay);
+  wrap.appendChild(clickOverlay);
 }
 
 // Helpers UI
@@ -465,7 +468,7 @@ function resetTrainingState() {
   clearOptions();
   const ctx = overlay.getContext("2d");
   ctx.clearRect(0,0,overlay.width,overlay.height);
-  overlay.style.pointerEvents = "none";
+  clickOverlay.style.pointerEvents = "none";
   document.body.style.pointerEvents = "";
   sessionEnd?.classList.add("hidden");
   summaryStats && (summaryStats.innerHTML = "");
@@ -492,7 +495,7 @@ function handleStop(index) {
   awaitingAnswer = true;
   lockedTime = stop.t;
   const pauseTime = performance.now();
-  overlay.style.pointerEvents = "auto";
+  clickOverlay.style.pointerEvents = "auto";
   redrawOverlay();
 
   if (stop.type === "predict-landing" && stop.zoneMode) {
@@ -521,15 +524,15 @@ function handleStop(index) {
       redrawOverlay();
 
       results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, zone: {id: chosenId} });
-      overlay.removeEventListener("click", clickHandler);
-      overlay.style.pointerEvents = "none";
+      clickOverlay.removeEventListener("click", clickHandler);
+      clickOverlay.style.pointerEvents = "none";
       hidePrompt();
       awaitingAnswer = false;
       nextStopIdx++; pauseGuard = false;
       if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
       else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
     };
-    overlay.addEventListener("click", clickHandler);
+    clickOverlay.addEventListener("click", clickHandler);
 
   } else if (stop.type === "predict-landing") {
     showPrompt("Clique sur la <b>zone d'atterrissage</b> de la balle.");
@@ -560,15 +563,15 @@ function handleStop(index) {
         flashCircle(rel.relX, rel.relY, "rgba(239,68,68,0.95)", 1500);
       }
       results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, distancePx, clickX: rel.relX, clickY: rel.relY });
-      overlay.removeEventListener("click", clickHandler);
-      overlay.style.pointerEvents = "none";
+      clickOverlay.removeEventListener("click", clickHandler);
+      clickOverlay.style.pointerEvents = "none";
       hidePrompt();
       awaitingAnswer = false;
       nextStopIdx++; pauseGuard = false;
       if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
       else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
     };
-    overlay.addEventListener("click", clickHandler, { once:true });
+    clickOverlay.addEventListener("click", clickHandler, { once:true });
 
   } else if (stop.type === "next-shot") {
     const options = stop.options && stop.options.length ? stop.options : ["CD croisé","Revers long de ligne","Amorti","Lob"];
@@ -577,7 +580,7 @@ function handleStop(index) {
       const rtMs = Math.round(now - pauseTime);
       const correct = stop.correct ? (opt === stop.correct) : false;
       results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, choice: opt });
-      clearOptions(); overlay.style.pointerEvents = "none"; hidePrompt();
+      clearOptions(); clickOverlay.style.pointerEvents = "none"; hidePrompt();
       awaitingAnswer = false;
       nextStopIdx++; pauseGuard = false;
       if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
@@ -606,7 +609,7 @@ function runCountdownThen(callback) {
     ctx.textBaseline = "middle";
     ctx.fillText(text, overlay.width/2, overlay.height/2);
   }
-  overlay.style.pointerEvents = "none";
+  clickOverlay.style.pointerEvents = "none";
   showPrompt("La séance démarre dans…");
   positionPrompt();
   drawBig(String(n));
@@ -976,25 +979,25 @@ function setAnswerForStop(index) {
 
   if (!stop.zoneMode) {
     showPrompt("Clique sur l'endroit où la balle <b>atterrit</b>.");
-    overlay.style.pointerEvents = "auto";
+    clickOverlay.style.pointerEvents = "auto";
     const clickHandler = (evt) => {
       const rel = getRelFromEvent(evt);
       stop.answerPoint = { x: rel.relX, y: rel.relY };
       flashCircle(rel.relX, rel.relY, "rgba(128,128,128,0.8)", 700);
-      overlay.removeEventListener("click", clickHandler);
-      overlay.style.pointerEvents = "none";
+      clickOverlay.removeEventListener("click", clickHandler);
+      clickOverlay.style.pointerEvents = "none";
       hidePrompt();
       pendingSetAnswerForIndex = null;
       refreshStopsTable(); redrawOverlay();
     };
-    overlay.addEventListener("click", clickHandler, { once:true });
+    clickOverlay.addEventListener("click", clickHandler, { once:true });
     return;
   }
 
   // ZoneMode: grille par arrêt
   definingGridStep = 1; tempGrid = { x: 0.5, y: 0.5 };
   showPrompt("Définis la grille : clique la <b>ligne VERTICALE</b> (1er clic).");
-  overlay.style.pointerEvents = "auto";
+  clickOverlay.style.pointerEvents = "auto";
 
   const gridHandler = (evt) => {
     const rel = getRelFromEvent(evt);
@@ -1006,12 +1009,12 @@ function setAnswerForStop(index) {
       tempGrid.y = rel.relY; definingGridStep = 0;
       stop.gridSplit = {...tempGrid};
       activeGridForEditor = {...tempGrid};
-      overlay.removeEventListener("click", gridHandler);
+      clickOverlay.removeEventListener("click", gridHandler);
       chooseZoneForStop(index);
     }
     redrawOverlay();
   };
-  overlay.addEventListener("click", gridHandler);
+  clickOverlay.addEventListener("click", gridHandler);
 }
 
 function chooseZoneForStop(index) {
@@ -1021,14 +1024,14 @@ function chooseZoneForStop(index) {
     const rel = getRelFromEvent(evt);
     const z = getZoneFromSplit(rel.relX, rel.relY, stop.gridSplit);
     stop.answerZone = { id: z.id, col: z.col, row: z.row };
-    overlay.removeEventListener("click", clickHandler);
-    overlay.style.pointerEvents = "none";
+    clickOverlay.removeEventListener("click", clickHandler);
+    clickOverlay.style.pointerEvents = "none";
     hidePrompt();
     pendingSetAnswerForIndex = null;
     activeGridForEditor = null;
     refreshStopsTable(); redrawOverlay();
   };
-  overlay.addEventListener("click", clickHandler);
+  clickOverlay.addEventListener("click", clickHandler);
 }
 
 // Export/Import scénario (identique V2)
@@ -1065,18 +1068,18 @@ startSessionBtn?.addEventListener("click", () => {
       window.addEventListener("scrollend", () => {
         refreshVideoRect();
         isCentering = false;
-        overlay.focus?.();
+        clickOverlay.focus?.();
       }, { once: true });
     } else {
       setTimeout(() => requestAnimationFrame(() => {
         refreshVideoRect();
         isCentering = false;
-        overlay.focus?.();
+          clickOverlay.focus?.();
       }), 0);
     }
   } catch (e) {
     isCentering = false;
-    overlay.focus?.();
+    clickOverlay.focus?.();
   }
   startSession();
 });
