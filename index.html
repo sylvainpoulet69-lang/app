@@ -62,18 +62,20 @@
         <button id="exportScenario">Exporter le scénario (JSON)</button>
       </div>
       <div class="shortcut-help">Espace = Lecture/Pause · P = Prédire l’atterrissage · D = Décision coup suivant · R = Définir la réponse</div>
-        <div class="row zone-config">
-        <label class="inline">
-          <input type="checkbox" id="zoneMode"/>
-          Mode zones (2×2) pour « Prédire »
-        </label>
-        <label>Options (séparées par des virgules) pour « Décision » :
-          <input type="text" id="decisionOptions" placeholder="ex : CD croisé, Revers long de ligne, Amorti, Lob"/>
-        </label>
-        <label>Réponse correcte :
-          <input type="text" id="decisionCorrect" placeholder="Doit correspondre exactement à une option"/>
-        </label>
-      </div>
+        <div class="row">
+          <label class="zone-mode">
+            <input type="checkbox" id="zoneMode"/>
+            Mode zones (2×2) pour « Prédire »
+          </label>
+        </div>
+        <div class="decision-config">
+          <label>Options (séparées par des virgules) pour « Décision » :
+            <input type="text" id="decisionOptions" placeholder="ex : CD croisé, Revers long de ligne, Amorti, Lob"/>
+          </label>
+          <label>Réponse correcte :
+            <input type="text" id="decisionCorrect" placeholder="Doit correspondre exactement à une option"/>
+          </label>
+        </div>
       <div>
         <h3>Arrêts du scénario</h3>
         <table id="stopsTable">
