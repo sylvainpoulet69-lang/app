@@ -14,6 +14,7 @@ const playPauseBtn = $("#playPause");
 const frameBackBtn = $("#frameBack");
 const frameForwardBtn = $("#frameForward");
 const playbackRateSelect = $("#playbackRate");
+const restartExerciseBtn = $("#btnRestartExercise");
 const optionsWrap = $("#optionsWrap");
 
 const KEYMAP = {
@@ -140,7 +141,7 @@ let pauseGuard = false;
 let endSessionTimeoutId = null;
 let awaitingAnswer = false;
 let lockedTime = 0;
-
+let tickRAF = null;
 // wrap overlay au-dessus de la vidéo
 let wrap = null;
 function ensureWrap() {
@@ -402,7 +403,32 @@ function endSessionWithDelay() {
     finishSession();
   }, delay);
 }
-let tickRAF = null;
+function resetExercise() {
+  clearTimeout(endSessionTimeoutId);
+  endSessionTimeoutId = null;
+  if (tickRAF) { cancelAnimationFrame(tickRAF); tickRAF = null; }
+  videoEl.pause();
+  videoEl.currentTime = 0;
+  results = [];
+  playQueue = [];
+  nextStopIdx = 0;
+  pauseGuard = false;
+  awaitingAnswer = false;
+  sessionActive = false;
+  editorMode = true;
+  clickFeedbacks = [];
+  feedbackFlash = null;
+  hidePrompt();
+  clearOptions();
+  overlay.style.pointerEvents = "none";
+  document.body.style.pointerEvents = "";
+  sessionEnd?.classList.add("hidden");
+  summaryStats && (summaryStats.innerHTML = "");
+  renderSessionStats();
+  redrawOverlay();
+  videoEl.focus?.();
+}
+
 function tickStopWatcher() {
   if (!sessionActive) return;
   if (nextStopIdx >= playQueue.length) { finishSession(); return; }
@@ -996,6 +1022,11 @@ frameForwardBtn?.addEventListener("click", () => {
   if (!videoEl.src) return;
   const fps = videoEl.framerate || 25;
   videoEl.currentTime = Math.min(videoEl.duration, videoEl.currentTime + 1 / fps);
+});
+restartExerciseBtn?.addEventListener("click", () => {
+  if (confirm("Recommencer l'exercice ?")) {
+    resetExercise();
+  }
 });
 
 // Popup: Rejouer / Fermer
