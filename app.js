@@ -548,8 +548,8 @@ function handleStop(index) {
         const chosenColor = correct ? "rgba(16,185,129,0.95)" : "rgba(239,68,68,0.95)";
         flashCircle(rel.cx, rel.cy, chosenColor, 1500);
         if (!correct) {
-          const dispX = stop.answerPoint.x / (videoEl.videoWidth || 1) * overlay.width;
-          const dispY = stop.answerPoint.y / (videoEl.videoHeight || 1) * overlay.height;
+          const dispX = answerSrcX / (videoEl.videoWidth || 1) * overlay.width;
+          const dispY = answerSrcY / (videoEl.videoHeight || 1) * overlay.height;
           flashCircle(dispX, dispY, "rgba(16,185,129,0.95)", 1500);
         }
       } else {
