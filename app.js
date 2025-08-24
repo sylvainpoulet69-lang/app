@@ -622,7 +622,7 @@ function runCountdownThen(callback) {
     ctx.textBaseline = "middle";
     ctx.fillText(text, overlay.width/2, overlay.height/2);
   }
-  clickOverlay.style.pointerEvents = "none";
+  clickOverlay.style.pointerEvents = isCentering ? "auto" : "none";
   showPrompt("La séance démarre dans…");
   positionPrompt();
   drawBig(String(n));
@@ -1139,6 +1139,7 @@ startSessionBtn?.addEventListener("click", () => {
   if (!scenario.stops?.length) { alert("Pas d'arrêts. Chargez un scénario ou créez-en dans l'éditeur."); return; }
   try {
     isCentering = true;
+    clickOverlay.style.pointerEvents = "auto";
     videoContainer?.scrollIntoView({ behavior: "smooth", block: "center" });
     let settleTO, fallbackTO;
     const settle = () => {
@@ -1150,6 +1151,9 @@ startSessionBtn?.addEventListener("click", () => {
         videoEl.getBoundingClientRect();
         resizeOverlayToVideo();
         isCentering = false;
+        if (!awaitingAnswer) {
+          clickOverlay.style.pointerEvents = "none";
+        }
         clickOverlay.focus?.();
       });
     };
@@ -1162,6 +1166,7 @@ startSessionBtn?.addEventListener("click", () => {
     fallbackTO = setTimeout(settle, 1000);
   } catch (e) {
     isCentering = false;
+    clickOverlay.style.pointerEvents = awaitingAnswer ? "auto" : "none";
     clickOverlay.focus?.();
   }
   startSession();
@@ -1170,6 +1175,14 @@ startSessionBtn?.addEventListener("click", () => {
 // Lecture/Pause bouton
 playPauseBtn?.addEventListener("click", () => {
   if (!videoEl.src || awaitingAnswer) return;
+  if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
+});
+
+// Toggle play/pause when clicking directly on the video
+videoEl.addEventListener("click", (e) => {
+  if (e.target !== videoEl) return;
+  if (!videoEl.src || awaitingAnswer || isCentering) return;
+  if (!sessionEnd?.classList.contains("hidden")) return;
   if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
 });
 
@@ -1246,7 +1259,7 @@ videoEl?.addEventListener("loadedmetadata", () => {
   }
 });
 videoEl?.addEventListener("play", () => {
-  if (awaitingAnswer) {
+  if (awaitingAnswer || isCentering) {
     videoEl.pause();
     videoEl.currentTime = lockedTime;
     return;
@@ -1254,7 +1267,7 @@ videoEl?.addEventListener("play", () => {
   if (sessionActive && pauseGuard) requestAnimationFrame(tickStopWatcher);
 });
 videoEl?.addEventListener("seeking", () => {
-  if (awaitingAnswer) {
+  if (awaitingAnswer || isCentering) {
     videoEl.pause();
     videoEl.currentTime = lockedTime;
   }
