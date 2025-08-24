@@ -82,7 +82,6 @@ function globalKeyHandler(e) {
   switch (key) {
     case KEYMAP.playPause:
       e.preventDefault();
-      if (!videoEl.src || awaitingAnswer) break;
       togglePlayback();
       flashButton(playPauseBtn);
       break;
