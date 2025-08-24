@@ -49,6 +49,12 @@ function msToSec(ms) {
   return (ms / 1000).toFixed(2);
 }
 
+function formatDistance(px) {
+  const cm = px / 37.8;
+  const mm = cm * 10;
+  return `${cm.toFixed(2)} cm (${mm.toFixed(2)} mm)`;
+}
+
 let progressChart = null;
 let sessionComparisonChart = null;
 
@@ -310,7 +316,7 @@ function finishSession() {
       <p>Médiane des temps de réaction: <b>${msToSec(s.medianRT || 0)} s</b></p>
       <p>Écart-type des temps de réaction: <b>${msToSec(s.stdDevRT || 0)} s</b></p>
       <p>Taux de bonnes réponses: <b>${s.accuracy || 0}%</b></p>
-      ${s.meanDist!=null ? `<p>Erreur moyenne (clic vs réponse): <b>${s.meanDist} px</b></p>` : ""}
+      ${s.meanDist!=null ? `<p>Erreur moyenne (clic vs réponse): <b>${formatDistance(s.meanDist)}</b></p>` : ""}
     `;
     sessionEnd.classList.remove("hidden");
   }
@@ -492,6 +498,8 @@ function computeStats() {
   const accuracy = Math.round(100 * results.filter(r => r.correct).length / n);
   const dItems = results.filter(r => typeof r.distancePx === "number");
   const meanDist = dItems.length ? Math.round(dItems.reduce((a,r)=>a+r.distancePx,0)/dItems.length) : null;
+  const meanDistCm = meanDist != null ? meanDist / 37.8 : null;
+  const meanDistMm = meanDistCm != null ? meanDistCm * 10 : null;
   const binSize = 100;
   const maxRT = rtMs.length ? Math.max(...rtMs) : 0;
   const bins = Array(Math.ceil(maxRT / binSize) || 1).fill(0);
@@ -515,6 +523,8 @@ function computeStats() {
     stdDevRT,
     accuracy,
     meanDist,
+    meanDistCm,
+    meanDistMm,
     rtDistribution: { binSize, bins },
     perStop,
     rtSeries,
@@ -559,7 +569,7 @@ function renderSessionStats() {
       <li>Médiane des temps de réaction: <b>${msToSec(s.medianRT)} s</b></li>
       <li>Écart-type des temps de réaction: <b>${msToSec(s.stdDevRT)} s</b></li>
       <li>Taux de réponses « correctes »: <b>${s.accuracy}%</b></li>
-      ${s.meanDist!=null ? `<li>Erreur moyenne (clic vs réponse): <b>${s.meanDist} px</b></li>` : ""}
+      ${s.meanDist!=null ? `<li>Erreur moyenne (clic vs réponse): <b>${formatDistance(s.meanDist)}</b></li>` : ""}
     </ul>
   `;
   if (rtHistogramCanvas && s.rtDistribution.bins.length) {
