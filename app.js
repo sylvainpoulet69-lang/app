@@ -39,6 +39,9 @@ const perStopListEl = $("#perStopScores");
 const progressChartCanvas = $("#progressChart");
 const sessionComparisonCanvas = $("#sessionComparisonChart");
 
+// Tolérance (en pixels) pour les clics précis
+const tolPx = 20;
+
 let progressChart = null;
 let sessionComparisonChart = null;
 
@@ -193,6 +196,13 @@ function getRelFromEvent(evt) {
 // Dessin overlay
 let activeGridForEditor = null;
 let feedbackFlash = null; // {zones:[{id,color}], endsAt, grid}
+let clickFeedbacks = []; // {x,y,color,radius,expiresAt}
+
+function flashCircle(relX, relY, color, durationMs) {
+  const radius = 20;
+  clickFeedbacks.push({ x: relX, y: relY, color, radius, expiresAt: performance.now() + durationMs });
+  redrawOverlay();
+}
 
 function redrawOverlay() {
   const ctx = overlay.getContext("2d");
@@ -214,12 +224,30 @@ function redrawOverlay() {
     }
   }
 
-  // Feedback éphémère pendant la séance
-  if (feedbackFlash && performance.now() < feedbackFlash.endsAt) {
+  const now = performance.now();
+  let needRAF = false;
+
+  // Cercles de feedback (clics)
+  if (clickFeedbacks.length) {
+    clickFeedbacks = clickFeedbacks.filter(c => c.expiresAt > now);
+    clickFeedbacks.forEach(c => {
+      ctx.beginPath();
+      ctx.arc(c.x * overlay.width, c.y * overlay.height, c.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = c.color;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+    });
+    if (clickFeedbacks.length) needRAF = true;
+  }
+
+  // Feedback éphémère pendant la séance (zones)
+  if (feedbackFlash && now < feedbackFlash.endsAt) {
     const boxes = zoneBoxes(feedbackFlash.grid);
     feedbackFlash.zones.forEach(z => drawZoneStroke(ctx, boxes[z.id], z.color, 6));
-    requestAnimationFrame(redrawOverlay);
+    needRAF = true;
   }
+
+  if (needRAF) requestAnimationFrame(redrawOverlay);
 }
 function zoneBoxes(gs) {
   const xSplit = (gs?.x ?? 0.5) * overlay.width;
@@ -338,8 +366,15 @@ function handleStop(index) {
         const dx = (rel.x - stop.answerPoint.x) * rect.width;
         const dy = (rel.y - stop.answerPoint.y) * rect.height;
         distancePx = Math.sqrt(dx*dx + dy*dy);
-        const tol = Math.max(rect.width, rect.height) * 0.08;
+        const tol = tolPx;
         correct = distancePx <= tol;
+        const chosenColor = correct ? "rgba(16,185,129,0.95)" : "rgba(239,68,68,0.95)";
+        flashCircle(rel.x, rel.y, chosenColor, 1500);
+        if (!correct) {
+          flashCircle(stop.answerPoint.x, stop.answerPoint.y, "rgba(16,185,129,0.95)", 1500);
+        }
+      } else {
+        flashCircle(rel.x, rel.y, "rgba(239,68,68,0.95)", 1500);
       }
       results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, distancePx, clickX: rel.x, clickY: rel.y });
       overlay.removeEventListener("click", clickHandler);
@@ -723,6 +758,7 @@ function setAnswerForStop(index) {
     const clickHandler = (evt) => {
       const rel = getRelFromEvent(evt);
       stop.answerPoint = { x: rel.x, y: rel.y };
+      flashCircle(rel.x, rel.y, "rgba(128,128,128,0.8)", 700);
       overlay.removeEventListener("click", clickHandler);
       overlay.style.pointerEvents = "none";
       hidePrompt();
