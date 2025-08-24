@@ -6,6 +6,7 @@ const videoEl = $("#player");
 videoEl.framerate = 25;
 const overlay = $("#overlay");
 const overlayPrompt = $("#overlayPrompt");
+const videoContainer = $("#videoContainer");
 const sessionEnd = $("#sessionEnd");
 const summaryStats = $("#summaryStats");
 const restartSessionBtn = $("#restartSession");
@@ -1024,6 +1025,10 @@ scenarioFileInput?.addEventListener("change", (e) => {
 
 startSessionBtn?.addEventListener("click", () => {
   if (!scenario.stops?.length) { alert("Pas d'arrêts. Chargez un scénario ou créez-en dans l'éditeur."); return; }
+  try {
+    videoContainer?.scrollIntoView({ behavior: "smooth", block: "center" });
+    videoEl.focus?.();
+  } catch (e) {}
   startSession();
 });
 
