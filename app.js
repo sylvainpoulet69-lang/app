@@ -172,10 +172,6 @@ function ensureWrap() {
   videoEl.parentNode.insertBefore(wrap, videoEl);
   wrap.appendChild(videoEl);
   wrap.appendChild(overlay);
-  overlay.style.position = "absolute";
-  overlay.style.left = "0px";
-  overlay.style.top = "0px";
-  overlay.style.pointerEvents = "none";
 }
 
 // Helpers UI
@@ -184,7 +180,6 @@ function resizeOverlayToVideo() {
   const w = videoEl.clientWidth || videoEl.videoWidth || 640;
   const h = videoEl.clientHeight || (videoEl.videoWidth ? videoEl.videoHeight * (w / videoEl.videoWidth) : 360);
   overlay.width = w; overlay.height = h;
-  overlay.style.width = w + "px"; overlay.style.height = h + "px";
   positionPrompt(); positionOptionsWrap();
   redrawOverlay();
 }
