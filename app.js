@@ -270,6 +270,9 @@ function renderOptions(options, onPick) {
 }
 
 // Zones
+function getVideoRect() {
+  return videoEl.getBoundingClientRect();
+}
 function getZoneFromSplit(relX, relY, gs) {
   const splitX = gs?.x ?? 0.5;
   const splitY = gs?.y ?? 0.5;
@@ -279,10 +282,14 @@ function getZoneFromSplit(relX, relY, gs) {
   return { col:1,row:1, id:4 };
 }
 function getRelFromEvent(evt) {
-  const rect = overlay.getBoundingClientRect();
-  const x = (evt.clientX - rect.left) / rect.width;
-  const y = (evt.clientY - rect.top) / rect.height;
-  return { x: Math.max(0,Math.min(1,x)), y: Math.max(0,Math.min(1,y)) };
+  const rect = getVideoRect();
+  const relX = (evt.clientX - rect.left) / rect.width;
+  const relY = (evt.clientY - rect.top) / rect.height;
+  const x = Math.max(0, Math.min(1, relX));
+  const y = Math.max(0, Math.min(1, relY));
+  const srcX = x * (videoEl.videoWidth || 0);
+  const srcY = y * (videoEl.videoHeight || 0);
+  return { relX: x, relY: y, srcX, srcY };
 }
 
 // Dessin overlay
@@ -477,7 +484,7 @@ function handleStop(index) {
       const now = performance.now();
       const rtMs = Math.round(now - pauseTime);
       const rel = getRelFromEvent(evt);
-      const zoneObj = getZoneFromSplit(rel.x, rel.y, stop.gridSplit);
+      const zoneObj = getZoneFromSplit(rel.relX, rel.relY, stop.gridSplit);
       const chosenId = zoneObj.id;
       const correctId = stop.answerZone?.id ?? null;
       const correct = (correctId != null && chosenId === correctId);
@@ -508,25 +515,26 @@ function handleStop(index) {
     const clickHandler = (evt) => {
       const now = performance.now();
       const rtMs = Math.round(now - pauseTime);
-      const rect = overlay.getBoundingClientRect();
       const rel = getRelFromEvent(evt);
       let correct = false;
       let distancePx = null;
       if (stop.answerPoint) {
-        const dx = (rel.x - stop.answerPoint.x) * rect.width;
-        const dy = (rel.y - stop.answerPoint.y) * rect.height;
+        const answerSrcX = stop.answerPoint.x * (videoEl.videoWidth || 0);
+        const answerSrcY = stop.answerPoint.y * (videoEl.videoHeight || 0);
+        const dx = rel.srcX - answerSrcX;
+        const dy = rel.srcY - answerSrcY;
         distancePx = Math.sqrt(dx*dx + dy*dy);
         const tol = tolPx;
         correct = distancePx <= tol;
         const chosenColor = correct ? "rgba(16,185,129,0.95)" : "rgba(239,68,68,0.95)";
-        flashCircle(rel.x, rel.y, chosenColor, 1500);
+        flashCircle(rel.relX, rel.relY, chosenColor, 1500);
         if (!correct) {
           flashCircle(stop.answerPoint.x, stop.answerPoint.y, "rgba(16,185,129,0.95)", 1500);
         }
       } else {
-        flashCircle(rel.x, rel.y, "rgba(239,68,68,0.95)", 1500);
+        flashCircle(rel.relX, rel.relY, "rgba(239,68,68,0.95)", 1500);
       }
-      results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, distancePx, clickX: rel.x, clickY: rel.y });
+      results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, distancePx, clickX: rel.relX, clickY: rel.relY });
       overlay.removeEventListener("click", clickHandler);
       overlay.style.pointerEvents = "none";
       hidePrompt();
@@ -946,8 +954,8 @@ function setAnswerForStop(index) {
     overlay.style.pointerEvents = "auto";
     const clickHandler = (evt) => {
       const rel = getRelFromEvent(evt);
-      stop.answerPoint = { x: rel.x, y: rel.y };
-      flashCircle(rel.x, rel.y, "rgba(128,128,128,0.8)", 700);
+      stop.answerPoint = { x: rel.relX, y: rel.relY };
+      flashCircle(rel.relX, rel.relY, "rgba(128,128,128,0.8)", 700);
       overlay.removeEventListener("click", clickHandler);
       overlay.style.pointerEvents = "none";
       hidePrompt();
@@ -966,11 +974,11 @@ function setAnswerForStop(index) {
   const gridHandler = (evt) => {
     const rel = getRelFromEvent(evt);
     if (definingGridStep === 1) {
-      tempGrid.x = rel.x; definingGridStep = 2;
+      tempGrid.x = rel.relX; definingGridStep = 2;
       activeGridForEditor = {...tempGrid};
       showPrompt("Clique la <b>ligne HORIZONTALE</b> (2e clic).");
     } else if (definingGridStep === 2) {
-      tempGrid.y = rel.y; definingGridStep = 0;
+      tempGrid.y = rel.relY; definingGridStep = 0;
       stop.gridSplit = {...tempGrid};
       activeGridForEditor = {...tempGrid};
       overlay.removeEventListener("click", gridHandler);
@@ -986,7 +994,7 @@ function chooseZoneForStop(index) {
   showPrompt("Clique maintenant dans la <b>zone correcte</b> (1/2/3/4).");
   const clickHandler = (evt) => {
     const rel = getRelFromEvent(evt);
-    const z = getZoneFromSplit(rel.x, rel.y, stop.gridSplit);
+    const z = getZoneFromSplit(rel.relX, rel.relY, stop.gridSplit);
     stop.answerZone = { id: z.id, col: z.col, row: z.row };
     overlay.removeEventListener("click", clickHandler);
     overlay.style.pointerEvents = "none";
