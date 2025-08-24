@@ -120,7 +120,7 @@ function positionPrompt() {
   box.style.maxWidth = Math.max(260, rect.width * 0.5) + "px";
   box.style.fontWeight = "600";
   box.style.zIndex = 9999;
-  let left = 12;
+  let left = rect.width / 2 - box.offsetWidth / 2;
   let top = 12;
   left = Math.max(0, Math.min(rect.width - box.offsetWidth, left));
   top = Math.max(0, Math.min(rect.height - box.offsetHeight, top));
