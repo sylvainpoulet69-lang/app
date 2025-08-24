@@ -42,6 +42,9 @@ const sessionComparisonCanvas = $("#sessionComparisonChart");
 // Tolérance (en pixels) pour les clics précis
 const tolPx = 20;
 
+// Délai avant l'affichage de l'écran de fin (ms)
+const endScreenDelayMs = 1200;
+
 let progressChart = null;
 let sessionComparisonChart = null;
 
@@ -302,6 +305,22 @@ function finishSession() {
     sessionEnd.classList.remove("hidden");
   }
 }
+function endSessionWithDelay() {
+  document.body.style.pointerEvents = "none";
+  const now = performance.now();
+  let delay = endScreenDelayMs;
+  if (feedbackFlash) {
+    delay = Math.max(delay, feedbackFlash.endsAt - now);
+  }
+  if (clickFeedbacks.length) {
+    const maxExpires = Math.max(...clickFeedbacks.map(c => c.expiresAt));
+    delay = Math.max(delay, maxExpires - now);
+  }
+  setTimeout(() => {
+    document.body.style.pointerEvents = "";
+    finishSession();
+  }, delay);
+}
 let tickRAF = null;
 function tickStopWatcher() {
   if (!sessionActive) return;
@@ -333,13 +352,13 @@ function handleStop(index) {
       const correctId = stop.answerZone?.id ?? null;
       const correct = (correctId != null && chosenId === correctId);
 
-      // Feedback un peu plus long (1200ms)
+      // Feedback un peu plus long (endScreenDelayMs)
       feedbackFlash = {
         grid: stop.gridSplit,
         zones: correct
           ? [{id: chosenId, color: "rgba(16,185,129,0.95)"}]
           : [{id: chosenId, color: "rgba(239,68,68,0.95)"}, {id: correctId, color: "rgba(16,185,129,0.95)"}],
-        endsAt: performance.now() + 1200
+        endsAt: performance.now() + endScreenDelayMs
       };
       redrawOverlay();
 
@@ -348,7 +367,7 @@ function handleStop(index) {
       overlay.style.pointerEvents = "none";
       hidePrompt();
       nextStopIdx++; pauseGuard = false;
-      if (nextStopIdx >= playQueue.length) { finishSession(); }
+      if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
       else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
     };
     overlay.addEventListener("click", clickHandler);
@@ -381,7 +400,7 @@ function handleStop(index) {
       overlay.style.pointerEvents = "none";
       hidePrompt();
       nextStopIdx++; pauseGuard = false;
-      if (nextStopIdx >= playQueue.length) { finishSession(); }
+      if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
       else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
     };
     overlay.addEventListener("click", clickHandler, { once:true });
@@ -395,7 +414,7 @@ function handleStop(index) {
       results.push({ stopIndex: index, type: stop.type, t: stop.t, rtMs, correct, choice: opt });
       clearOptions(); overlay.style.pointerEvents = "none"; hidePrompt();
       nextStopIdx++; pauseGuard = false;
-      if (nextStopIdx >= playQueue.length) { finishSession(); }
+      if (nextStopIdx >= playQueue.length) { endSessionWithDelay(); }
       else { videoEl.play(); requestAnimationFrame(tickStopWatcher); }
     });
     showPrompt("Choisis le <b>coup</b> que tu jouerais dans cette situation.");
