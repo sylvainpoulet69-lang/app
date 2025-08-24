@@ -64,7 +64,13 @@
       <div class="row">
         <label class="inline">
           <input type="checkbox" id="zoneMode"/>
-          Mode zones (2×2) pour « Prédire »
+          Mode zones
+        </label>
+        <label>Colonnes :
+          <input type="number" id="gridCols" value="2" min="1"/>
+        </label>
+        <label>Lignes :
+          <input type="number" id="gridRows" value="2" min="1"/>
         </label>
         <label>Options (séparées par des virgules) pour « Décision » :
           <input type="text" id="decisionOptions" placeholder="ex : CD croisé, Revers long de ligne, Amorti, Lob"/>
@@ -106,6 +112,38 @@
       <ul id="perStopScores"></ul>
     </section>
   </main>
+
+  <div id="editStopModal" class="hidden">
+    <div class="summary">
+      <h3>Éditer l'arrêt</h3>
+      <label>Temps (s)
+        <input type="number" step="0.01" id="editStopTime"/>
+      </label>
+      <label>Type
+        <select id="editStopType">
+          <option value="predict-landing">Prédire atterrissage</option>
+          <option value="next-shot">Décision coup suivant</option>
+        </select>
+      </label>
+      <div id="editPredictFields">
+        <label class="inline"><input type="checkbox" id="editZoneMode"/> Mode zones</label>
+        <label>Cols <input type="number" id="editGridCols" min="1"/></label>
+        <label>Rows <input type="number" id="editGridRows" min="1"/></label>
+        <label>X splits <input type="text" id="editGridX" placeholder="ex:0.5"/></label>
+        <label>Y splits <input type="text" id="editGridY" placeholder="ex:0.5"/></label>
+        <label>Réponse X <input type="number" step="0.01" id="editAnswerX"/></label>
+        <label>Réponse Y <input type="number" step="0.01" id="editAnswerY"/></label>
+      </div>
+      <div id="editDecisionFields" class="hidden">
+        <label>Options <input type="text" id="editOptions"/></label>
+        <label>Correct <input type="text" id="editCorrect"/></label>
+      </div>
+      <div class="row">
+        <button id="saveEditStop">Enregistrer</button>
+        <button id="cancelEditStop">Annuler</button>
+      </div>
+    </div>
+  </div>
 
   <footer>
     <small>MVP local — Aucun envoi de données. Vos scénarios et résultats restent sur votre machine.</small>
