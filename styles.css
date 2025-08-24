@@ -7,6 +7,8 @@ h1 { margin: 0 0 6px; font-size: 24px; }
 main { padding: 16px 24px; display: grid; gap: 20px; }
 .panel { background: #14171f; border: 1px solid #272b33; border-radius: 12px; padding: 16px; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.row.between { justify-content: space-between; }
+.left-buttons { display: flex; gap: 8px; }
 /* Zone configuration removed; using zone-mode instead */
 
 .zone-mode {
