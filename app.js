@@ -436,6 +436,8 @@ function endSessionWithDelay() {
   }, delay);
 }
 function resetTrainingState() {
+  // Abort any pending editor interactions and remove listeners.
+  cleanupEditorClickHandlers();
   clearTimeout(endSessionTimeoutId);
   endSessionTimeoutId = null;
   clearInterval(countdownIntervalId);
@@ -966,24 +968,54 @@ markAnswerBtn?.addEventListener("click", () => {
 let definingGridStep = 0; // 0 rien, 1 verticale, 2 horizontale
 let tempGrid = null;
 
+// --- Editor click handlers tracking --------------------------------------
+// These references keep track of temporary handlers used while the editor is
+// waiting for the user to define a landing point or grid. Before any new
+// handler is attached we remove the previous one to avoid duplicate bindings
+// that could fire multiple times.
+let answerPointHandler = null;
+let gridSelectHandler = null;
+let zoneSelectHandler = null;
+
+function cleanupEditorClickHandlers() {
+  // Remove any lingering handlers and reset the references. This is called
+  // before attaching a new handler and in cancel/abort paths.
+  if (answerPointHandler) {
+    clickOverlay.removeEventListener("click", answerPointHandler);
+    answerPointHandler = null;
+  }
+  if (gridSelectHandler) {
+    clickOverlay.removeEventListener("click", gridSelectHandler);
+    gridSelectHandler = null;
+  }
+  if (zoneSelectHandler) {
+    clickOverlay.removeEventListener("click", zoneSelectHandler);
+    zoneSelectHandler = null;
+  }
+}
+
 function setAnswerForStop(index) {
   const stop = scenario.stops[index];
   pendingSetAnswerForIndex = index;
 
+  // Remove any previous editor click handlers before attaching a new one.
+  cleanupEditorClickHandlers();
+
   if (!stop.zoneMode) {
     showPrompt("Clique sur l'endroit où la balle <b>atterrit</b>.");
     clickOverlay.style.pointerEvents = "auto";
-    const clickHandler = (evt) => {
+    answerPointHandler = (evt) => {
       const rel = getClickCoords(evt);
       stop.answerPoint = { x: rel.pxX, y: rel.pxY };
       flashCircle(rel.cx, rel.cy, "rgba(128,128,128,0.8)", 700);
-      clickOverlay.removeEventListener("click", clickHandler);
       clickOverlay.style.pointerEvents = "none";
       hidePrompt();
       pendingSetAnswerForIndex = null;
       refreshStopsTable(); redrawOverlay();
+      answerPointHandler = null; // one-shot
     };
-    clickOverlay.addEventListener("click", clickHandler, { once:true });
+    // `once:true` ensures automatic cleanup after the click.
+    clickOverlay.addEventListener("click", answerPointHandler, { once:true });
     return;
   }
 
@@ -992,7 +1024,7 @@ function setAnswerForStop(index) {
   showPrompt("Définis la grille : clique la <b>ligne VERTICALE</b> (1er clic).");
   clickOverlay.style.pointerEvents = "auto";
 
-  const gridHandler = (evt) => {
+  gridSelectHandler = (evt) => {
     const rel = getClickCoords(evt);
     if (definingGridStep === 1) {
       tempGrid.x = rel.relX; definingGridStep = 2;
@@ -1002,29 +1034,33 @@ function setAnswerForStop(index) {
       tempGrid.y = rel.relY; definingGridStep = 0;
       stop.gridSplit = {...tempGrid};
       activeGridForEditor = {...tempGrid};
-      clickOverlay.removeEventListener("click", gridHandler);
+      clickOverlay.removeEventListener("click", gridSelectHandler);
+      gridSelectHandler = null;
       chooseZoneForStop(index);
     }
     redrawOverlay();
   };
-  clickOverlay.addEventListener("click", gridHandler);
+  clickOverlay.addEventListener("click", gridSelectHandler);
 }
 
 function chooseZoneForStop(index) {
   const stop = scenario.stops[index];
+  // Ensure any previous zone handler is cleared before binding a new one.
+  cleanupEditorClickHandlers();
   showPrompt("Clique maintenant dans la <b>zone correcte</b> (1/2/3/4).");
-  const clickHandler = (evt) => {
+  zoneSelectHandler = (evt) => {
     const rel = getClickCoords(evt);
     const z = getZoneFromSplit(rel.relX, rel.relY, stop.gridSplit);
     stop.answerZone = { id: z.id, col: z.col, row: z.row };
-    clickOverlay.removeEventListener("click", clickHandler);
     clickOverlay.style.pointerEvents = "none";
     hidePrompt();
     pendingSetAnswerForIndex = null;
     activeGridForEditor = null;
     refreshStopsTable(); redrawOverlay();
+    zoneSelectHandler = null;
   };
-  clickOverlay.addEventListener("click", clickHandler);
+  // Only need a single click to choose the zone.
+  clickOverlay.addEventListener("click", zoneSelectHandler, { once:true });
 }
 
 // Export/Import scénario
