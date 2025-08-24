@@ -68,6 +68,8 @@ let playQueue = [];
 let nextStopIdx = 0;
 let sessionActive = false;
 let pauseGuard = false;
+// setTimeout ID for ending the session
+let endSessionTimeoutId = null;
 
 // wrap overlay au-dessus de la vidéo
 let wrap = null;
@@ -272,6 +274,8 @@ function drawZoneStroke(ctx, box, color, lw=4) {
 
 // Lecture / séance
 function startSession() {
+  clearTimeout(endSessionTimeoutId);
+  endSessionTimeoutId = null;
   if (!videoEl.duration) { alert("Chargez d'abord une vidéo."); return; }
   if (!scenario.stops?.length) { alert("Chargez un scénario ou créez des arrêts dans l'éditeur."); return; }
   scenario.stops.sort((a,b)=>a.t-b.t);
@@ -288,6 +292,8 @@ function startSession() {
 }
 
 function finishSession() {
+  clearTimeout(endSessionTimeoutId);
+  endSessionTimeoutId = null;
   sessionActive = false;
   videoEl.pause();
   const s = computeStats();
@@ -316,7 +322,8 @@ function endSessionWithDelay() {
     const maxExpires = Math.max(...clickFeedbacks.map(c => c.expiresAt));
     delay = Math.max(delay, maxExpires - now);
   }
-  setTimeout(() => {
+  clearTimeout(endSessionTimeoutId);
+  endSessionTimeoutId = setTimeout(() => {
     document.body.style.pointerEvents = "";
     finishSession();
   }, delay);
