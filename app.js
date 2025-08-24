@@ -45,6 +45,10 @@ const tolPx = 20;
 // Délai avant l'affichage de l'écran de fin (ms)
 const endScreenDelayMs = 1200;
 
+function msToSec(ms) {
+  return (ms / 1000).toFixed(2);
+}
+
 let progressChart = null;
 let sessionComparisonChart = null;
 
@@ -302,9 +306,9 @@ function finishSession() {
   if (summaryStats && sessionEnd) {
     summaryStats.innerHTML = `
       <p>Nombre d'arrêts traités: <b>${s.n || 0}</b></p>
-      <p>Temps de réaction moyen: <b>${s.meanRT || 0} ms</b></p>
-      <p>Médiane des temps de réaction: <b>${s.medianRT || 0} ms</b></p>
-      <p>Écart-type des temps de réaction: <b>${s.stdDevRT || 0} ms</b></p>
+      <p>Temps de réaction moyen: <b>${msToSec(s.meanRT || 0)} s</b></p>
+      <p>Médiane des temps de réaction: <b>${msToSec(s.medianRT || 0)} s</b></p>
+      <p>Écart-type des temps de réaction: <b>${msToSec(s.stdDevRT || 0)} s</b></p>
       <p>Taux de bonnes réponses: <b>${s.accuracy || 0}%</b></p>
       ${s.meanDist!=null ? `<p>Erreur moyenne (clic vs réponse): <b>${s.meanDist} px</b></p>` : ""}
     `;
@@ -551,9 +555,9 @@ function renderSessionStats() {
     <h3>Résumé séance</h3>
     <ul>
       <li>Nombre d'arrêts traités: <b>${s.n}</b></li>
-      <li>Temps de réaction moyen: <b>${s.meanRT} ms</b></li>
-      <li>Médiane des temps de réaction: <b>${s.medianRT} ms</b></li>
-      <li>Écart-type des temps de réaction: <b>${s.stdDevRT} ms</b></li>
+      <li>Temps de réaction moyen: <b>${msToSec(s.meanRT)} s</b></li>
+      <li>Médiane des temps de réaction: <b>${msToSec(s.medianRT)} s</b></li>
+      <li>Écart-type des temps de réaction: <b>${msToSec(s.stdDevRT)} s</b></li>
       <li>Taux de réponses « correctes »: <b>${s.accuracy}%</b></li>
       ${s.meanDist!=null ? `<li>Erreur moyenne (clic vs réponse): <b>${s.meanDist} px</b></li>` : ""}
     </ul>
@@ -574,24 +578,26 @@ function renderSessionStats() {
   }
   if (perStopListEl) {
     perStopListEl.innerHTML = s.perStop.map(ps =>
-      `<li>Arrêt ${ps.stopIndex + 1}: ${ps.correct ? "✅" : "❌"} (${ps.rtMs != null ? ps.rtMs + " ms" : "-"})</li>`
+      `<li>Arrêt ${ps.stopIndex + 1}: ${ps.correct ? "✅" : "❌"} (${ps.rtMs != null ? msToSec(ps.rtMs) + " s" : "-"})</li>`
     ).join("");
   }
 
   if (progressChartCanvas && s.rtSeries.length) {
     const labels = s.perStop.map((_, i) => i + 1);
+    const rtSeriesSec = s.rtSeries.map(rt => rt / 1000);
+    const rtTrendSec = s.rtTrend.map(rt => rt / 1000);
     const data = {
       labels,
       datasets: [
         {
-          label: "RT (ms)",
-          data: s.rtSeries,
+          label: "RT (s)",
+          data: rtSeriesSec,
           borderColor: "rgba(52,152,219,0.8)",
           fill: false,
         },
         {
-          label: "Moyenne cumulée (ms)",
-          data: s.rtTrend,
+          label: "Moyenne cumulée (s)",
+          data: rtTrendSec,
           borderColor: "rgba(231,76,60,0.8)",
           fill: false,
         }
@@ -618,13 +624,13 @@ function renderSessionStats() {
   const history = getSessionHistory();
   if (sessionComparisonCanvas && history.length) {
     const labels = history.map((_, i) => `Session ${i + 1}`);
-    const meanRTs = history.map(h => h.meanRT);
+    const meanRTs = history.map(h => h.meanRT / 1000);
     const accuracies = history.map(h => h.accuracy);
     const data = {
       labels,
       datasets: [
         {
-          label: "RT moyen (ms)",
+          label: "RT moyen (s)",
           data: meanRTs,
           borderColor: "rgba(54, 162, 235, 0.8)",
           fill: false,
