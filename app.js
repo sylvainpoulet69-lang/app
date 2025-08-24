@@ -536,7 +536,7 @@ function computeStats() {
 function addSessionToHistory(stats) {
   try {
     const history = JSON.parse(localStorage.getItem("sessionHistory") || "[]");
-    history.push({ meanRT: stats.meanRT, accuracy: stats.accuracy });
+    history.push({ meanRT: parseFloat(msToSec(stats.meanRT)), accuracy: stats.accuracy });
     localStorage.setItem("sessionHistory", JSON.stringify(history));
   } catch (e) {
     console.warn("Cannot save session history", e);
@@ -545,7 +545,20 @@ function addSessionToHistory(stats) {
 
 function getSessionHistory() {
   try {
-    return JSON.parse(localStorage.getItem("sessionHistory") || "[]");
+    const history = JSON.parse(localStorage.getItem("sessionHistory") || "[]");
+    let changed = false;
+    const normalized = history.map((h) => {
+      let meanRT = typeof h.meanRT === "string" ? parseFloat(h.meanRT) : h.meanRT;
+      if (meanRT > 10) { // legacy ms values
+        meanRT = meanRT / 1000;
+        changed = true;
+      }
+      return { ...h, meanRT };
+    });
+    if (changed) {
+      localStorage.setItem("sessionHistory", JSON.stringify(normalized));
+    }
+    return normalized;
   } catch (e) {
     return [];
   }
@@ -634,13 +647,13 @@ function renderSessionStats() {
   const history = getSessionHistory();
   if (sessionComparisonCanvas && history.length) {
     const labels = history.map((_, i) => `Session ${i + 1}`);
-    const meanRTs = history.map(h => h.meanRT / 1000);
+    const meanRTs = history.map(h => h.meanRT);
     const accuracies = history.map(h => h.accuracy);
     const data = {
       labels,
       datasets: [
         {
-          label: "RT moyen (s)",
+          label: "Temps de réaction moyen (s)",
           data: meanRTs,
           borderColor: "rgba(54, 162, 235, 0.8)",
           fill: false,
@@ -659,8 +672,20 @@ function renderSessionStats() {
       responsive: true,
       interaction: { mode: "index", intersect: false },
       scales: {
-        y: { type: "linear", position: "left", beginAtZero: true },
-        y1: { type: "linear", position: "right", beginAtZero: true, grid: { drawOnChartArea: false } },
+        y: {
+          type: "linear",
+          position: "left",
+          beginAtZero: true,
+          title: { display: true, text: "Secondes" },
+          ticks: { callback: (v) => v + "s" }
+        },
+        y1: {
+          type: "linear",
+          position: "right",
+          beginAtZero: true,
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: "Précision (%)" }
+        },
       },
       plugins: {
         zoom: {
