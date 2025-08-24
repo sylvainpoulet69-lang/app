@@ -5,6 +5,7 @@ const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 const videoEl = $("#player");
 videoEl.framerate = 25;
 const overlay = $("#overlay");
+overlay.tabIndex = -1;
 const overlayPrompt = $("#overlayPrompt");
 const videoContainer = $("#videoContainer");
 const sessionEnd = $("#sessionEnd");
@@ -159,6 +160,7 @@ let tickRAF = null;
 let countdownIntervalId = null;
 let countdownTimeoutId = null;
 let isRestarting = false;
+let isCentering = false;
 // wrap overlay au-dessus de la vidéo
 let wrap = null;
 function ensureWrap() {
@@ -274,7 +276,13 @@ function renderOptions(options, onPick) {
   options.forEach(opt => {
     const b = document.createElement("button");
     b.textContent = opt;
-    b.onclick = () => onPick(opt);
+    b.onclick = (evt) => {
+      if (isCentering) {
+        evt.preventDefault();
+        return;
+      }
+      onPick(opt);
+    };
     optionsWrap.appendChild(b);
   });
   optionsWrap.classList.add("visible");
@@ -495,6 +503,10 @@ function handleStop(index) {
   if (stop.type === "predict-landing" && stop.zoneMode) {
     showPrompt("Clique dans la <b>zone</b> où la balle va <b>tomber</b>.");
     const clickHandler = (evt) => {
+      if (isCentering) {
+        evt.preventDefault();
+        return;
+      }
       const now = performance.now();
       const rtMs = Math.round(now - pauseTime);
       const rel = getRelFromEvent(evt);
@@ -527,6 +539,10 @@ function handleStop(index) {
   } else if (stop.type === "predict-landing") {
     showPrompt("Clique sur la <b>zone d'atterrissage</b> de la balle.");
     const clickHandler = (evt) => {
+      if (isCentering) {
+        evt.preventDefault();
+        return;
+      }
       const now = performance.now();
       const rtMs = Math.round(now - pauseTime);
       const rel = getRelFromEvent(evt);
@@ -1048,14 +1064,25 @@ scenarioFileInput?.addEventListener("change", (e) => {
 startSessionBtn?.addEventListener("click", () => {
   if (!scenario.stops?.length) { alert("Pas d'arrêts. Chargez un scénario ou créez-en dans l'éditeur."); return; }
   try {
+    isCentering = true;
     videoContainer?.scrollIntoView({ behavior: "smooth", block: "center" });
     if ("onscrollend" in window) {
-      window.addEventListener("scrollend", refreshVideoRect, { once: true });
+      window.addEventListener("scrollend", () => {
+        refreshVideoRect();
+        isCentering = false;
+        overlay.focus?.();
+      }, { once: true });
     } else {
-      setTimeout(() => requestAnimationFrame(refreshVideoRect), 0);
+      setTimeout(() => requestAnimationFrame(() => {
+        refreshVideoRect();
+        isCentering = false;
+        overlay.focus?.();
+      }), 0);
     }
-    videoEl.focus?.();
-  } catch (e) {}
+  } catch (e) {
+    isCentering = false;
+    overlay.focus?.();
+  }
   startSession();
 });
 
