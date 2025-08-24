@@ -48,6 +48,19 @@ const perStopListEl = $("#perStopScores");
 const progressChartCanvas = $("#progressChart");
 const sessionComparisonCanvas = $("#sessionComparisonChart");
 
+let videoRect = null;
+function refreshVideoRect() {
+  videoRect = videoEl.getBoundingClientRect();
+}
+
+if (window.ResizeObserver && videoContainer) {
+  new ResizeObserver(refreshVideoRect).observe(videoContainer);
+}
+
+window.addEventListener("resize", refreshVideoRect);
+window.addEventListener("orientationchange", refreshVideoRect);
+document.addEventListener("fullscreenchange", refreshVideoRect);
+
 function flashButton(btn) {
   if (!btn) return;
   btn.classList.add("flash");
@@ -271,7 +284,8 @@ function renderOptions(options, onPick) {
 
 // Zones
 function getVideoRect() {
-  return videoEl.getBoundingClientRect();
+  if (videoRect === null) refreshVideoRect();
+  return videoRect;
 }
 function getZoneFromSplit(relX, relY, gs) {
   const splitX = gs?.x ?? 0.5;
@@ -1035,6 +1049,11 @@ startSessionBtn?.addEventListener("click", () => {
   if (!scenario.stops?.length) { alert("Pas d'arrêts. Chargez un scénario ou créez-en dans l'éditeur."); return; }
   try {
     videoContainer?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if ("onscrollend" in window) {
+      window.addEventListener("scrollend", refreshVideoRect, { once: true });
+    } else {
+      setTimeout(() => requestAnimationFrame(refreshVideoRect), 0);
+    }
     videoEl.focus?.();
   } catch (e) {}
   startSession();
