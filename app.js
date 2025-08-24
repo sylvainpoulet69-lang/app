@@ -150,6 +150,7 @@ let playQueue = [];
 let nextStopIdx = 0;
 let sessionActive = false;
 let pauseGuard = false;
+let playbackLockUntil = 0; // absorbs click-chain play requests after pause
 // setTimeout ID for ending the session
 let endSessionTimeoutId = null;
 let awaitingAnswer = false;
@@ -1175,19 +1176,26 @@ startSession();
 });
 
 // Helper determining if playback can toggle
-function canTogglePlayback() {
-  if (!videoEl.src) return false;
-  if (awaitingAnswer || isCentering) return false;
-  if (!sessionEnd?.classList.contains("hidden")) return false;
-  if (pendingSetAnswerForIndex != null) return false;
-  if (answerPointHandler || gridSelectHandler || zoneSelectHandler) return false;
-  return true;
-}
+  function canTogglePlayback() {
+    if (!videoEl.src) return false;
+    if (awaitingAnswer || isCentering) return false;
+    if (!sessionEnd?.classList.contains("hidden")) return false;
+    if (pendingSetAnswerForIndex != null) return false;
+    if (answerPointHandler || gridSelectHandler || zoneSelectHandler) return false;
+    if (videoEl.paused && playbackLockUntil > performance.now()) return false;
+    return true;
+  }
 
-function togglePlayback() {
-  if (!canTogglePlayback()) return;
-  if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
-}
+  function togglePlayback() {
+    if (!canTogglePlayback()) return;
+    if (videoEl.paused) {
+      videoEl.play();
+    } else {
+      videoEl.pause();
+      playbackLockUntil = performance.now() + 200;
+      setTimeout(() => { playbackLockUntil = 0; }, 200);
+    }
+  }
 
 // Toggle play/pause when clicking/tapping on the video area
 videoContainer?.addEventListener("pointerup", (e) => {
