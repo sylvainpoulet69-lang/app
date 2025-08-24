@@ -16,12 +16,19 @@ const frameForwardBtn = $("#frameForward");
 const playbackRateSelect = $("#playbackRate");
 const optionsWrap = $("#optionsWrap");
 
+const KEYMAP = {
+  playPause: " ",
+  predict: "p",
+  decisionNext: "d",
+  defineAnswer: "r",
+};
+
 const videoFileInput = $("#videoFile");
 const scenarioFileInput = $("#scenarioFile");
 
-const addPredictBtn = $("#addPredict");
-const addDecisionBtn = $("#addDecision");
-const markAnswerBtn = $("#markAnswer");
+const addPredictBtn = $("#btnAddPredictStop");
+const addDecisionBtn = $("#btnAddDecisionStop");
+const markAnswerBtn = $("#btnDefineAnswer");
 const exportScenarioBtn = $("#exportScenario");
 
 const decisionOptionsInput = $("#decisionOptions");
@@ -38,6 +45,57 @@ const rtHistogramCanvas = $("#rtHistogram");
 const perStopListEl = $("#perStopScores");
 const progressChartCanvas = $("#progressChart");
 const sessionComparisonCanvas = $("#sessionComparisonChart");
+
+function flashButton(btn) {
+  if (!btn) return;
+  btn.classList.add("flash");
+  setTimeout(() => btn.classList.remove("flash"), 200);
+  btn.focus?.();
+}
+
+function isTypingElement(el) {
+  if (!el) return false;
+  const tag = el.tagName?.toLowerCase();
+  return ["input", "textarea", "select"].includes(tag) || el.isContentEditable;
+}
+
+function globalKeyHandler(e) {
+  if (e.defaultPrevented || e.repeat) return;
+  if (isTypingElement(e.target)) return;
+  if (!sessionEnd?.classList.contains("hidden")) return;
+  const key = e.key.toLowerCase();
+  switch (key) {
+    case KEYMAP.playPause:
+      e.preventDefault();
+      if (!videoEl.src) break;
+      if (videoEl.paused) { videoEl.play(); } else { videoEl.pause(); }
+      flashButton(playPauseBtn);
+      break;
+    case KEYMAP.predict:
+      if (!editorMode) break;
+      e.preventDefault();
+      addPredictBtn?.click();
+      flashButton(addPredictBtn);
+      break;
+    case KEYMAP.decisionNext:
+      if (!editorMode) break;
+      e.preventDefault();
+      addDecisionBtn?.click();
+      flashButton(addDecisionBtn);
+      break;
+    case KEYMAP.defineAnswer:
+      if (!editorMode) break;
+      e.preventDefault();
+      markAnswerBtn?.click();
+      flashButton(markAnswerBtn);
+      break;
+  }
+}
+
+document.addEventListener("keydown", globalKeyHandler);
+window.addEventListener("beforeunload", () => {
+  document.removeEventListener("keydown", globalKeyHandler);
+});
 
 // Tolérance (en pixels) pour les clics précis
 const tolPx = 20;
