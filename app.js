@@ -1069,6 +1069,7 @@ function chooseZoneForStop(index) {
   // Ensure any previous zone handler is cleared before binding a new one.
   cleanupEditorClickHandlers();
   showPrompt("Clique maintenant dans la <b>zone correcte</b> (1/2/3/4).");
+  clickOverlay.style.pointerEvents = "auto";
   zoneSelectHandler = (evt) => {
     const rel = getClickCoords(evt);
     const z = getZoneFromSplit(rel.relX, rel.relY, stop.gridSplit);
